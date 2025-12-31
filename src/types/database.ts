@@ -139,6 +139,7 @@ export interface ExerciseLibrary {
 
 export interface DailyProgress {
   id: string;
+  client_id: string;
   date: string;
   exercises_completed: string[];
   meals_completed: string[];
@@ -148,6 +149,7 @@ export interface DailyProgress {
 
 export interface WeightHistory {
   id: string;
+  client_id: string;
   weight_kg: number;
   recorded_at: string;
 }

@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { TrendingDown, TrendingUp, Droplets, Plus, Minus, CalendarDays, CheckCircle2, Clock } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
@@ -18,15 +18,46 @@ function getBrasiliaDate(): string {
 }
 
 export function Progress() {
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
+
+  const clientId = profile?.id || user?.id;
   const [weightHistory, setWeightHistory] = useState<WeightHistory[]>([]);
   const [weeklyProgress, setWeeklyProgress] = useState<DailyProgress[]>([]);
   const [todayWater, setTodayWater] = useState(0);
-  const [waterLoading, setWaterLoading] = useState(false);
+  const [profileReady, setProfileReady] = useState(false);
   const waterGoal = 3000; // 3L meta diária
 
+  // Garantir que profile existe no banco
+  useEffect(() => {
+    async function ensureProfile() {
+      if (!user?.id) return;
+
+      // Verificar se existe
+      const { data } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (!data) {
+        // Criar profile
+        await supabase.from('profiles').insert({
+          id: user.id,
+          role: 'client',
+          full_name: user.email?.split('@')[0] || 'Usuário',
+          email: user.email,
+          is_active: true,
+        });
+      }
+
+      setProfileReady(true);
+    }
+
+    ensureProfile();
+  }, [user?.id, user?.email]);
+
   const fetchAllData = useCallback(async () => {
-    if (!profile?.id) return;
+    if (!clientId || !profileReady) return;
 
     const today = getBrasiliaDate();
     const weekStart = new Date();
@@ -37,20 +68,20 @@ export function Progress() {
       supabase
         .from('weight_history')
         .select('*')
-        .eq('client_id', profile.id)
+        .eq('client_id', clientId)
         .order('recorded_at', { ascending: false })
         .limit(10),
       supabase
         .from('daily_progress')
         .select('*')
-        .eq('client_id', profile.id)
+        .eq('client_id', clientId)
         .gte('date', weekStart.toISOString().split('T')[0])
         .lte('date', today)
         .order('date'),
       supabase
         .from('daily_progress')
         .select('water_consumed_ml')
-        .eq('client_id', profile.id)
+        .eq('client_id', clientId)
         .eq('date', today)
         .maybeSingle()
     ]);
@@ -58,51 +89,54 @@ export function Progress() {
     if (weightResult.data) setWeightHistory(weightResult.data);
     if (weeklyResult.data) setWeeklyProgress(weeklyResult.data);
     if (waterResult.data) setTodayWater(waterResult.data.water_consumed_ml || 0);
-  }, [profile?.id]);
+  }, [clientId, profileReady]);
 
   // Hook que gerencia refetch automático
   usePageData({
-    userId: profile?.id,
+    userId: clientId,
     fetchData: fetchAllData,
   });
 
   async function addWater(amount: number) {
-    if (waterLoading) return;
+    if (!clientId || !profileReady) return;
 
-    setWaterLoading(true);
     const today = getBrasiliaDate();
     const newAmount = Math.max(0, todayWater + amount);
+    const previousAmount = todayWater;
 
-    // Atualização otimista
+    // Atualização otimista imediata
     setTodayWater(newAmount);
 
     try {
-      const { data: existing } = await supabase
+      // Tentar atualizar primeiro (mais comum após primeiro clique)
+      const { data: updated, error: updateError } = await supabase
         .from('daily_progress')
-        .select('id')
-        .eq('client_id', profile!.id)
+        .update({ water_consumed_ml: newAmount })
+        .eq('client_id', clientId)
         .eq('date', today)
+        .select('id')
         .maybeSingle();
 
-      if (existing) {
-        await supabase
-          .from('daily_progress')
-          .update({ water_consumed_ml: newAmount })
-          .eq('id', existing.id);
-      } else {
-        await supabase.from('daily_progress').insert({
-          client_id: profile!.id,
+      // Se não atualizou nenhum registro, inserir novo
+      if (!updated && !updateError) {
+        const { error: insertError } = await supabase.from('daily_progress').insert({
+          client_id: clientId,
           date: today,
           water_consumed_ml: newAmount,
           exercises_completed: [],
           meals_completed: [],
         });
+
+        if (insertError && insertError.code !== '23505') {
+          // Ignorar erro de duplicado (pode acontecer em cliques rápidos)
+          throw insertError;
+        }
       }
+
+      if (updateError) throw updateError;
     } catch (error) {
       console.error('Erro ao atualizar água:', error);
-      setTodayWater(todayWater); // Rollback
-    } finally {
-      setWaterLoading(false);
+      setTodayWater(previousAmount); // Rollback
     }
   }
 
@@ -317,14 +351,13 @@ export function Progress() {
               <button
                 className={styles.waterBtnSmall}
                 onClick={() => addWater(-250)}
-                disabled={waterLoading || todayWater <= 0}
+                disabled={todayWater <= 0}
               >
                 <Minus size={16} />
               </button>
               <button
                 className={styles.waterBtnAdd}
                 onClick={() => addWater(250)}
-                disabled={waterLoading}
               >
                 <Plus size={18} />
                 250ml
@@ -332,7 +365,6 @@ export function Progress() {
               <button
                 className={styles.waterBtnAdd}
                 onClick={() => addWater(500)}
-                disabled={waterLoading}
               >
                 <Plus size={18} />
                 500ml
@@ -340,7 +372,6 @@ export function Progress() {
               <button
                 className={styles.waterBtnAdd}
                 onClick={() => addWater(1000)}
-                disabled={waterLoading}
               >
                 <Plus size={18} />
                 1L

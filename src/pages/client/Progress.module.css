@@ -298,15 +298,17 @@
 
 .waterButtons {
   display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
   justify-content: center;
   align-items: center;
+  flex-wrap: nowrap;
+  padding: 0 8px;
 }
 
 .waterBtnSmall {
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
   border-radius: 50%;
   background: var(--bg-secondary);
   border: 1px solid var(--border-color);
@@ -316,21 +318,29 @@
   justify-content: center;
   cursor: pointer;
   transition: all 0.2s;
+  flex-shrink: 0;
 }
 
 .waterBtnSmall:hover:not(:disabled) {
-  background: var(--border-light);
-  color: var(--text-primary);
+  background: rgba(239, 68, 68, 0.1);
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
+.waterBtnSmall:active:not(:disabled) {
+  transform: scale(0.95);
 }
 
 .waterBtnSmall:disabled {
-  opacity: 0.4;
+  opacity: 0.3;
   cursor: not-allowed;
 }
 
 .waterBtnAdd {
-  padding: 10px 16px;
-  border-radius: var(--radius-full);
+  flex: 1;
+  max-width: 100px;
+  padding: 10px 12px;
+  border-radius: var(--radius-lg);
   background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
   color: white;
   font-weight: 600;
@@ -339,14 +349,15 @@
   cursor: pointer;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 4px;
   transition: all 0.2s;
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.25);
 }
 
 .waterBtnAdd:hover:not(:disabled) {
-  transform: scale(1.05);
-  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.35);
 }
 
 .waterBtnAdd:active:not(:disabled) {
@@ -354,8 +365,9 @@
 }
 
 .waterBtnAdd:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
   cursor: not-allowed;
+  transform: none;
 }
 
 /* Plan Progress Card Styles */

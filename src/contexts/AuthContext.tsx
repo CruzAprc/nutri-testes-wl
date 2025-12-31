@@ -66,7 +66,7 @@ async function fetchProfile(userId: string): Promise<Profile | null> {
       .from('profiles')
       .select('*')
       .eq('id', userId)
-      .single();
+      .maybeSingle();
 
     if (error) {
       console.error('Erro ao buscar profile:', error.message);
