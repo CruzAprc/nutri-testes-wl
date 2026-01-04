@@ -136,22 +136,53 @@
   background: var(--primary-light);
 }
 
-.foodName {
+.foodNameWrapper {
   flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.foodName {
   font-size: 14px;
   color: var(--text-primary);
   line-height: 1.4;
 }
 
-.foodCalories {
+.foodOriginal {
+  font-size: 11px;
+  color: var(--text-light);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.foodMeta {
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin-left: 12px;
+}
+
+.foodUnit {
+  font-size: 11px;
+  color: var(--primary);
+  background: var(--primary-light);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+}
+
+.foodCalories {
   font-size: 13px;
   font-weight: 500;
   color: var(--text-muted);
   background: var(--bg-page);
   padding: 4px 8px;
   border-radius: var(--radius-sm);
+  white-space: nowrap;
 }
 
 .highlight {

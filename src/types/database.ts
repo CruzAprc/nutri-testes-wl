@@ -1,5 +1,6 @@
 export type UserRole = 'client' | 'admin';
 export type HealthRating = 'excellent' | 'good' | 'regular' | 'poor';
+export type UnitType = 'gramas' | 'unidade' | 'fatia' | 'colher_sopa' | 'colher_cha' | 'xicara' | 'copo' | 'porcao';
 export type DigestionRating = 'good' | 'bad' | 'terrible';
 export type BowelFrequency = 'once_a_day' | 'every_other_day' | 'constipated' | 'more_than_once';
 export type SleepQuality = 'excellent' | 'good' | 'regular' | 'poor' | 'terrible';
@@ -88,6 +89,8 @@ export interface MealFood {
   meal_id: string;
   food_name: string;
   quantity: string;
+  quantity_units: number | null;
+  unit_type: UnitType;
   order_index: number;
 }
 
@@ -165,6 +168,20 @@ export interface TabelaTaco {
   fibra: string;
 }
 
+export interface FoodMetadata {
+  id: string;
+  taco_id: number;
+  nome_simplificado: string;
+  unidade_tipo: UnitType;
+  peso_por_unidade: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TabelaTacoWithMetadata extends TabelaTaco {
+  food_metadata?: FoodMetadata | null;
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -232,6 +249,11 @@ export interface Database {
         Row: TabelaTaco;
         Insert: Omit<TabelaTaco, 'id' | 'created_at'>;
         Update: Partial<Omit<TabelaTaco, 'id'>>;
+      };
+      food_metadata: {
+        Row: FoodMetadata;
+        Insert: Omit<FoodMetadata, 'id' | 'created_at' | 'updated_at'>;
+        Update: Partial<Omit<FoodMetadata, 'id'>>;
       };
     };
   };
