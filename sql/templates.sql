@@ -31,8 +31,17 @@ CREATE TABLE IF NOT EXISTS diet_template_meal_foods (
   template_meal_id UUID NOT NULL REFERENCES diet_template_meals(id) ON DELETE CASCADE,
   food_name TEXT NOT NULL,
   quantity TEXT NOT NULL,
-  order_index INTEGER DEFAULT 0
+  order_index INTEGER DEFAULT 0,
+  unit_type TEXT DEFAULT 'gramas',
+  quantity_units NUMERIC(10,2)
 );
+
+-- Adicionar colunas de unidade (para tabelas existentes)
+ALTER TABLE diet_template_meal_foods
+ADD COLUMN IF NOT EXISTS unit_type TEXT DEFAULT 'gramas';
+
+ALTER TABLE diet_template_meal_foods
+ADD COLUMN IF NOT EXISTS quantity_units NUMERIC(10,2);
 
 -- =============================================
 -- TEMPLATES DE TREINO
@@ -184,3 +193,94 @@ CREATE TRIGGER update_workout_templates_updated_at
   BEFORE UPDATE ON workout_templates
   FOR EACH ROW
   EXECUTE FUNCTION update_template_updated_at();
+
+-- =============================================
+-- SUBSTITUICOES DE ALIMENTOS NOS TEMPLATES
+-- =============================================
+
+-- Tabela de substituicoes de alimentos nos templates
+CREATE TABLE IF NOT EXISTS diet_template_food_substitutions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  template_food_id UUID NOT NULL REFERENCES diet_template_meal_foods(id) ON DELETE CASCADE,
+  substitute_food TEXT NOT NULL,
+  substitute_quantity TEXT NOT NULL
+);
+
+-- Indice para performance
+CREATE INDEX IF NOT EXISTS idx_template_food_subs_food_id
+  ON diet_template_food_substitutions(template_food_id);
+
+-- Habilitar RLS
+ALTER TABLE diet_template_food_substitutions ENABLE ROW LEVEL SECURITY;
+
+-- Politica para admins
+CREATE POLICY "Admins can manage template food substitutions"
+  ON diet_template_food_substitutions
+  FOR ALL
+  USING (
+    EXISTS (
+      SELECT 1 FROM profiles
+      WHERE profiles.id = auth.uid()
+      AND profiles.role = 'admin'
+    )
+  );
+
+-- =============================================
+-- EQUIVALENCIAS DE ALIMENTOS
+-- =============================================
+
+-- Grupos de equivalencia (ex: Carboidratos, Proteinas)
+CREATE TABLE IF NOT EXISTS food_equivalence_groups (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  description TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Alimentos dentro de cada grupo com suas quantidades equivalentes
+CREATE TABLE IF NOT EXISTS food_equivalences (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  group_id UUID NOT NULL REFERENCES food_equivalence_groups(id) ON DELETE CASCADE,
+  food_name TEXT NOT NULL,
+  quantity_grams INTEGER NOT NULL,
+  order_index INTEGER DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Indices para performance
+CREATE INDEX IF NOT EXISTS idx_food_equivalences_group ON food_equivalences(group_id);
+CREATE INDEX IF NOT EXISTS idx_food_equivalences_name ON food_equivalences(food_name);
+
+-- Habilitar RLS
+ALTER TABLE food_equivalence_groups ENABLE ROW LEVEL SECURITY;
+ALTER TABLE food_equivalences ENABLE ROW LEVEL SECURITY;
+
+-- Politicas - Todos podem ler (clientes e admins)
+CREATE POLICY "Everyone can read food equivalence groups"
+  ON food_equivalence_groups FOR SELECT
+  USING (true);
+
+CREATE POLICY "Everyone can read food equivalences"
+  ON food_equivalences FOR SELECT
+  USING (true);
+
+-- Apenas admins podem modificar
+CREATE POLICY "Admins can manage food equivalence groups"
+  ON food_equivalence_groups FOR ALL
+  USING (
+    EXISTS (
+      SELECT 1 FROM profiles
+      WHERE profiles.id = auth.uid()
+      AND profiles.role = 'admin'
+    )
+  );
+
+CREATE POLICY "Admins can manage food equivalences"
+  ON food_equivalences FOR ALL
+  USING (
+    EXISTS (
+      SELECT 1 FROM profiles
+      WHERE profiles.id = auth.uid()
+      AND profiles.role = 'admin'
+    )
+  );

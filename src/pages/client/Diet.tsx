@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
-import { Clock, ChevronRight, ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react';
+import { Clock, ChevronRight, ChevronDown, ChevronUp, Plus, Trash2, RefreshCw } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { usePageData } from '../../hooks';
@@ -9,14 +9,37 @@ import type { ExtraMeal } from '../../components/ui';
 import { parseBrazilianNumber } from '../../components/ui/FoodSelect';
 import { formatFoodName } from '../../utils/formatters';
 import { formatQuantityDisplay } from '../../utils/foodUnits';
-import type { Meal, MealFood, FoodSubstitution, UnitType } from '../../types/database';
+import type { Meal, MealFood, FoodSubstitution, UnitType, FoodEquivalenceGroup, FoodEquivalence, DietPlan } from '../../types/database';
 import styles from './Diet.module.css';
+
+// Helper para salvar/carregar dieta selecionada do localStorage
+const SELECTED_DIET_KEY = 'selectedDietId';
+function getStoredDietId(): string | null {
+  try {
+    return localStorage.getItem(SELECTED_DIET_KEY);
+  } catch {
+    return null;
+  }
+}
+function setStoredDietId(dietId: string): void {
+  try {
+    localStorage.setItem(SELECTED_DIET_KEY, dietId);
+  } catch {
+    // Ignore localStorage errors
+  }
+}
+
+// Tipo para agrupar equivalencias por grupo
+interface EquivalenceGroupWithFoods extends FoodEquivalenceGroup {
+  foods: FoodEquivalence[];
+}
 
 interface MealFoodWithNutrition extends MealFood {
   calories?: number;
   protein?: number;
   carbs?: number;
   fats?: number;
+  display_name?: string; // Nome simplificado para exibicao
 }
 
 interface MealWithNutrition extends Meal {
@@ -58,11 +81,16 @@ export function Diet() {
   const [selectedMeal, setSelectedMeal] = useState<MealWithNutrition | null>(null);
   const [substitutions, setSubstitutions] = useState<FoodSubstitution[]>([]);
   const [expandedFoods, setExpandedFoods] = useState<Set<string>>(new Set());
-  const [_dietPlanId, setDietPlanId] = useState<string | null>(null);
   const [currentDate, setCurrentDate] = useState(getBrasiliaDate());
   const currentDateRef = useRef(currentDate);
   const [extraMeals, setExtraMeals] = useState<ExtraMeal[]>([]);
   const [showAddExtraMeal, setShowAddExtraMeal] = useState(false);
+  const [equivalenceGroups, setEquivalenceGroups] = useState<EquivalenceGroupWithFoods[]>([]);
+  const [expandedEquivalences, setExpandedEquivalences] = useState<Set<string>>(new Set());
+
+  // Multiple diets support
+  const [availableDiets, setAvailableDiets] = useState<DietPlan[]>([]);
+  const [selectedDietId, setSelectedDietId] = useState<string | null>(getStoredDietId());
 
   console.log('[Diet] render - profile?.id:', profile?.id, 'meals.length:', meals.length);
 
@@ -77,7 +105,7 @@ export function Diet() {
   // Callback para buscar todos os dados
   const fetchAllData = useCallback(async () => {
     console.log('[Diet] fetchAllData called - profile?.id:', profile?.id);
-    await Promise.all([fetchDiet(), fetchProgress()]);
+    await Promise.all([fetchDiet(), fetchProgress(), fetchEquivalences()]);
     console.log('[Diet] fetchAllData DONE');
   }, [profile?.id]);
 
@@ -163,7 +191,42 @@ export function Diet() {
 
   async function fetchDiet() {
     console.log('[Diet] fetchDiet started - profile?.id:', profile?.id);
-    // Query única com JOIN para buscar diet_plan + meals + meal_foods
+
+    // 1. First, fetch all available diets for this client
+    const { data: dietsData } = await supabase
+      .from('diet_plans')
+      .select('*')
+      .eq('client_id', profile!.id)
+      .order('display_order', { ascending: true })
+      .order('created_at', { ascending: true });
+
+    if (!dietsData || dietsData.length === 0) {
+      console.log('[Diet] fetchDiet - NO diets found, returning');
+      setAvailableDiets([]);
+      setMeals([]);
+      return;
+    }
+
+    setAvailableDiets(dietsData);
+
+    // 2. Determine which diet to load
+    let dietToLoad = dietsData[0];
+    const storedDietId = getStoredDietId();
+
+    if (storedDietId) {
+      const storedDiet = dietsData.find(d => d.id === storedDietId);
+      if (storedDiet) {
+        dietToLoad = storedDiet;
+      }
+    }
+
+    // Update selectedDietId state if needed
+    if (selectedDietId !== dietToLoad.id) {
+      setSelectedDietId(dietToLoad.id);
+      setStoredDietId(dietToLoad.id);
+    }
+
+    // 3. Now fetch the meals for the selected diet
     const { data: dietPlanData } = await supabase
       .from('diet_plans')
       .select(`
@@ -188,8 +251,8 @@ export function Diet() {
           substitute_quantity
         )
       `)
-      .eq('client_id', profile!.id)
-      .maybeSingle();
+      .eq('id', dietToLoad.id)
+      .single();
 
     console.log('[Diet] fetchDiet - supabase query returned, dietPlanData:', !!dietPlanData);
 
@@ -197,7 +260,6 @@ export function Diet() {
       console.log('[Diet] fetchDiet - NO dietPlanData, returning');
       return;
     }
-    setDietPlanId(dietPlanData.id);
 
     // Extrair todos os nomes de alimentos únicos
     const allFoodNames = new Set<string>();
@@ -209,22 +271,37 @@ export function Diet() {
       });
     });
 
-    // Buscar dados nutricionais de todos os alimentos de uma vez só
-    let nutritionMap = new Map<string, { caloria: string; proteina: string; carboidrato: string; gordura: string }>();
+    // Buscar dados nutricionais e nomes simplificados de todos os alimentos de uma vez só
+    let nutritionMap = new Map<string, { caloria: string; proteina: string; carboidrato: string; gordura: string; nome_simplificado?: string }>();
 
     if (allFoodNames.size > 0) {
       const { data: tacoData } = await supabase
         .from('tabela_taco')
-        .select('alimento, caloria, proteina, carboidrato, gordura')
+        .select(`
+          alimento,
+          caloria,
+          proteina,
+          carboidrato,
+          gordura,
+          food_metadata (
+            nome_simplificado
+          )
+        `)
         .in('alimento', Array.from(allFoodNames));
 
       if (tacoData) {
-        tacoData.forEach((item) => {
+        tacoData.forEach((item: any) => {
+          // food_metadata pode vir como array ou objeto dependendo da relação
+          const metadata = Array.isArray(item.food_metadata)
+            ? item.food_metadata[0]
+            : item.food_metadata;
+
           nutritionMap.set(item.alimento, {
             caloria: item.caloria,
             proteina: item.proteina,
             carboidrato: item.carboidrato,
             gordura: item.gordura,
+            nome_simplificado: metadata?.nome_simplificado || undefined,
           });
         });
       }
@@ -249,9 +326,10 @@ export function Diet() {
                 protein: parseBrazilianNumber(nutrition.proteina) * multiplier,
                 carbs: parseBrazilianNumber(nutrition.carboidrato) * multiplier,
                 fats: parseBrazilianNumber(nutrition.gordura) * multiplier,
+                display_name: nutrition.nome_simplificado || undefined,
               };
             }
-            return food;
+            return food as MealFoodWithNutrition;
           });
 
         // Calcular totais da refeição
@@ -298,6 +376,217 @@ export function Diet() {
       setCompletedMeals([]);
     }
     console.log('[Diet] fetchProgress COMPLETE');
+  }
+
+  async function fetchEquivalences() {
+    console.log('[Diet] fetchEquivalences started');
+
+    // Buscar grupos de equivalencia com seus alimentos
+    const { data: groups, error: groupsError } = await supabase
+      .from('food_equivalence_groups')
+      .select('*')
+      .order('name');
+
+    if (groupsError) {
+      console.error('[Diet] Error fetching equivalence groups:', groupsError);
+      return;
+    }
+
+    if (!groups || groups.length === 0) {
+      console.log('[Diet] No equivalence groups found');
+      setEquivalenceGroups([]);
+      return;
+    }
+
+    // Buscar todos os alimentos de equivalencia
+    const { data: foods, error: foodsError } = await supabase
+      .from('food_equivalences')
+      .select('*')
+      .order('order_index');
+
+    if (foodsError) {
+      console.error('[Diet] Error fetching equivalences:', foodsError);
+      return;
+    }
+
+    // Agrupar alimentos por grupo
+    const groupsWithFoods: EquivalenceGroupWithFoods[] = groups.map((group) => ({
+      ...group,
+      foods: (foods || []).filter((f) => f.group_id === group.id),
+    }));
+
+    setEquivalenceGroups(groupsWithFoods);
+    console.log('[Diet] fetchEquivalences COMPLETE - groups:', groupsWithFoods.length);
+  }
+
+  // Handle diet selection change
+  async function handleDietChange(dietId: string) {
+    if (dietId === selectedDietId) return;
+
+    setSelectedDietId(dietId);
+    setStoredDietId(dietId);
+
+    // Fetch meals for the newly selected diet
+    const { data: dietPlanData } = await supabase
+      .from('diet_plans')
+      .select(`
+        id,
+        meals (
+          id,
+          name,
+          suggested_time,
+          order_index,
+          meal_foods (
+            id,
+            food_name,
+            quantity,
+            order_index
+          )
+        ),
+        food_substitutions (
+          id,
+          diet_plan_id,
+          original_food,
+          substitute_food,
+          substitute_quantity
+        )
+      `)
+      .eq('id', dietId)
+      .single();
+
+    if (!dietPlanData) return;
+
+    // Process meals with nutrition data (same logic as fetchDiet)
+    const allFoodNames = new Set<string>();
+    dietPlanData.meals?.forEach((meal: any) => {
+      meal.meal_foods?.forEach((food: any) => {
+        if (food.food_name) {
+          allFoodNames.add(food.food_name);
+        }
+      });
+    });
+
+    let nutritionMap = new Map<string, { caloria: string; proteina: string; carboidrato: string; gordura: string; nome_simplificado?: string }>();
+
+    if (allFoodNames.size > 0) {
+      const { data: tacoData } = await supabase
+        .from('tabela_taco')
+        .select(`
+          alimento,
+          caloria,
+          proteina,
+          carboidrato,
+          gordura,
+          food_metadata (
+            nome_simplificado
+          )
+        `)
+        .in('alimento', Array.from(allFoodNames));
+
+      if (tacoData) {
+        tacoData.forEach((item: any) => {
+          const metadata = Array.isArray(item.food_metadata)
+            ? item.food_metadata[0]
+            : item.food_metadata;
+
+          nutritionMap.set(item.alimento, {
+            caloria: item.caloria,
+            proteina: item.proteina,
+            carboidrato: item.carboidrato,
+            gordura: item.gordura,
+            nome_simplificado: metadata?.nome_simplificado || undefined,
+          });
+        });
+      }
+    }
+
+    const mealsWithNutrition: MealWithNutrition[] = (dietPlanData.meals || [])
+      .sort((a: any, b: any) => (a.order_index || 0) - (b.order_index || 0))
+      .map((meal: any) => {
+        const foodsWithNutrition: MealFoodWithNutrition[] = (meal.meal_foods || [])
+          .sort((a: any, b: any) => (a.order_index || 0) - (b.order_index || 0))
+          .map((food: any) => {
+            const nutrition = food.food_name ? nutritionMap.get(food.food_name) : null;
+
+            if (nutrition) {
+              const qty = parseBrazilianNumber(food.quantity);
+              const multiplier = qty / 100;
+
+              return {
+                ...food,
+                calories: parseBrazilianNumber(nutrition.caloria) * multiplier,
+                protein: parseBrazilianNumber(nutrition.proteina) * multiplier,
+                carbs: parseBrazilianNumber(nutrition.carboidrato) * multiplier,
+                fats: parseBrazilianNumber(nutrition.gordura) * multiplier,
+                display_name: nutrition.nome_simplificado || undefined,
+              };
+            }
+            return food as MealFoodWithNutrition;
+          });
+
+        const totals = foodsWithNutrition.reduce(
+          (acc, food) => ({
+            calories: acc.calories + (food.calories || 0),
+            protein: acc.protein + (food.protein || 0),
+            carbs: acc.carbs + (food.carbs || 0),
+            fats: acc.fats + (food.fats || 0),
+          }),
+          { calories: 0, protein: 0, carbs: 0, fats: 0 }
+        );
+
+        return {
+          ...meal,
+          foods: foodsWithNutrition,
+          totalCalories: totals.calories,
+          totalProtein: totals.protein,
+          totalCarbs: totals.carbs,
+          totalFats: totals.fats,
+        };
+      });
+
+    setMeals(mealsWithNutrition);
+    setSubstitutions(dietPlanData.food_substitutions || []);
+  }
+
+  // Encontrar equivalencias para um alimento (verifica nome original e nome_simplificado)
+  function getEquivalencesForFood(foodName: string, displayName?: string): { group: FoodEquivalenceGroup; currentFood: FoodEquivalence; equivalents: FoodEquivalence[] } | null {
+    const normalizedName = foodName.toLowerCase().trim();
+    const normalizedDisplayName = displayName?.toLowerCase().trim();
+
+    for (const group of equivalenceGroups) {
+      // Primeiro tenta encontrar pelo nome_simplificado (displayName)
+      let currentFood = normalizedDisplayName
+        ? group.foods.find((f) => f.food_name.toLowerCase().trim() === normalizedDisplayName)
+        : null;
+
+      // Se não encontrou pelo displayName, tenta pelo nome original
+      if (!currentFood) {
+        currentFood = group.foods.find(
+          (f) => f.food_name.toLowerCase().trim() === normalizedName
+        );
+      }
+
+      if (currentFood) {
+        // Retornar todos os outros alimentos do grupo (exceto o atual)
+        const equivalents = group.foods.filter((f) => f.id !== currentFood!.id);
+        return { group, currentFood, equivalents };
+      }
+    }
+
+    return null;
+  }
+
+  // Toggle para expandir/colapsar equivalencias
+  function toggleEquivalenceExpansion(foodId: string) {
+    setExpandedEquivalences((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(foodId)) {
+        newSet.delete(foodId);
+      } else {
+        newSet.add(foodId);
+      }
+      return newSet;
+    });
   }
 
   async function toggleMeal(mealId: string) {
@@ -374,11 +663,13 @@ export function Diet() {
   function handleOpenMeal(meal: MealWithNutrition) {
     setSelectedMeal(meal);
     setExpandedFoods(new Set()); // Reset expanded foods when opening a new meal
+    setExpandedEquivalences(new Set()); // Reset expanded equivalences
   }
 
   function handleCloseMeal() {
     setSelectedMeal(null);
     setExpandedFoods(new Set());
+    setExpandedEquivalences(new Set());
   }
 
   // Skeleton de carregamento
@@ -399,11 +690,37 @@ export function Diet() {
 
   console.log('[Diet] RENDERING - loading:', loading, 'meals.length:', meals.length);
 
+  // Get current diet name for display
+  const currentDietName = availableDiets.find(d => d.id === selectedDietId)?.name || 'Dieta';
+
   return (
     <PageContainer>
       <Header title="Dieta" subtitle={getBrasiliaDisplayDate()} showBack />
 
       <main className={styles.content}>
+        {/* Diet Selector - only show if more than one diet available */}
+        {!loading && availableDiets.length > 1 && (
+          <div className={styles.dietSelector}>
+            <label className={styles.dietSelectorLabel}>Dieta ativa:</label>
+            <select
+              className={styles.dietSelectorSelect}
+              value={selectedDietId || ''}
+              onChange={(e) => handleDietChange(e.target.value)}
+            >
+              {availableDiets.map((diet) => (
+                <option key={diet.id} value={diet.id}>
+                  {diet.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {/* Show diet name if only one diet */}
+        {!loading && availableDiets.length === 1 && (
+          <div className={styles.singleDietName}>{currentDietName}</div>
+        )}
+
         {/* Barra de Macros do Dia */}
         {!loading && meals.length > 0 && (
           <DailyMacrosSummary
@@ -531,6 +848,11 @@ export function Diet() {
               const isExpanded = expandedFoods.has(food.id);
               const hasSubstitutions = foodSubs.length > 0;
 
+              // Verificar equivalencias (usando nome_simplificado se disponivel)
+              const equivalenceData = getEquivalencesForFood(food.food_name, food.display_name);
+              const hasEquivalences = equivalenceData && equivalenceData.equivalents.length > 0;
+              const isEquivalenceExpanded = expandedEquivalences.has(food.id);
+
               // Format quantity display based on unit_type
               const quantityDisplay = formatQuantityDisplay(
                 parseBrazilianNumber(food.quantity),
@@ -543,7 +865,9 @@ export function Diet() {
                   <div className={styles.foodItem}>
                     <span className={styles.foodBullet} />
                     <div className={styles.foodInfo}>
-                      <span className={styles.foodName}>{formatFoodName(food.food_name)}</span>
+                      <span className={styles.foodName}>
+                        {food.display_name || formatFoodName(food.food_name)}
+                      </span>
                       <span className={styles.foodDetails}>
                         {quantityDisplay}
                         {food.calories !== undefined && food.calories > 0 && (
@@ -572,6 +896,36 @@ export function Diet() {
                         <div key={sub.id} className={styles.substitutionRow}>
                           <span className={styles.substitutionArrow}>→</span>
                           <span>{formatFoodName(sub.substitute_food)} ({sub.substitute_quantity}g)</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Botão para ver equivalências */}
+                  {hasEquivalences && (
+                    <button
+                      className={styles.equivalenceToggle}
+                      onClick={() => toggleEquivalenceExpansion(food.id)}
+                    >
+                      <RefreshCw size={16} />
+                      {isEquivalenceExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                      <span>Ver equivalencias ({equivalenceData.equivalents.length})</span>
+                    </button>
+                  )}
+
+                  {/* Lista de equivalências inline */}
+                  {isEquivalenceExpanded && hasEquivalences && equivalenceData && (
+                    <div className={styles.inlineEquivalences}>
+                      <span className={styles.equivalenceGroupName}>
+                        {equivalenceData.group.name}
+                      </span>
+                      <span className={styles.equivalenceHint}>
+                        Troque {equivalenceData.currentFood.quantity_grams}g por:
+                      </span>
+                      {equivalenceData.equivalents.map((eq) => (
+                        <div key={eq.id} className={styles.equivalenceRow}>
+                          <span className={styles.equivalenceArrow}>→</span>
+                          <span>{eq.food_name} ({eq.quantity_grams}g)</span>
                         </div>
                       ))}
                     </div>

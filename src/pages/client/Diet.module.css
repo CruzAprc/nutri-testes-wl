@@ -5,6 +5,56 @@
   gap: 12px;
 }
 
+/* Diet Selector */
+.dietSelector {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--bg-card);
+  border-radius: var(--radius-md);
+  margin-bottom: 4px;
+}
+
+.dietSelectorLabel {
+  font-size: 14px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.dietSelectorSelect {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  background: var(--bg-main);
+  color: var(--text-primary);
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 32px;
+}
+
+.dietSelectorSelect:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.singleDietName {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 8px;
+  background: var(--bg-card);
+  border-radius: var(--radius-md);
+  margin-bottom: 4px;
+}
+
 .mealCard {
   display: flex;
   align-items: center;
@@ -395,5 +445,72 @@
 
 .substitutionArrow {
   color: var(--accent);
+  font-weight: 600;
+}
+
+/* Equivalences (similar style to substitutions but with different color) */
+.equivalenceToggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 20px;
+  padding: 6px 10px;
+  font-size: 13px;
+  color: var(--primary);
+  background: rgba(124, 58, 237, 0.08);
+  border-radius: var(--radius-sm);
+  transition: all 0.2s;
+}
+
+.equivalenceToggle:hover {
+  background: rgba(124, 58, 237, 0.15);
+}
+
+.equivalenceToggle span {
+  font-weight: 500;
+}
+
+.inlineEquivalences {
+  margin-left: 20px;
+  padding: 12px 16px;
+  background: rgba(124, 58, 237, 0.05);
+  border-left: 3px solid var(--primary);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  animation: slideDown 0.2s ease-out;
+}
+
+.equivalenceGroupName {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--primary);
+  margin-bottom: 6px;
+}
+
+.equivalenceHint {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.equivalenceRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.equivalenceRow:not(:last-child) {
+  border-bottom: 1px dashed var(--border-light);
+}
+
+.equivalenceArrow {
+  color: var(--primary);
   font-weight: 600;
 }

@@ -82,43 +82,98 @@ export function FoodSelect({
 
       const searchTermClean = searchTerm.trim();
 
-      // OTIMIZADO: Filtra diretamente no servidor com ilike, limitando a 30 resultados
-      const { data, error } = await supabase
-        .from('tabela_taco')
-        .select(`
-          *,
-          food_metadata (
-            id,
-            taco_id,
-            nome_simplificado,
-            unidade_tipo,
-            peso_por_unidade,
-            created_at,
-            updated_at
-          )
-        `)
-        .ilike('alimento', `%${searchTermClean}%`)
-        .order('alimento', { ascending: true })
-        .limit(30);
+      // Busca em paralelo: pelo nome original (alimento) e pelo nome simplificado
+      const [resultByAlimento, resultBySimplified] = await Promise.all([
+        // Query 1: Busca pelo nome original na tabela_taco
+        supabase
+          .from('tabela_taco')
+          .select(`
+            *,
+            food_metadata (
+              id,
+              taco_id,
+              nome_simplificado,
+              unidade_tipo,
+              peso_por_unidade,
+              created_at,
+              updated_at
+            )
+          `)
+          .ilike('alimento', `%${searchTermClean}%`)
+          .limit(30),
+
+        // Query 2: Busca pelo nome simplificado na food_metadata
+        supabase
+          .from('food_metadata')
+          .select('taco_id')
+          .ilike('nome_simplificado', `%${searchTermClean}%`)
+          .limit(30)
+      ]);
+
+      // Coleta IDs encontrados pelo nome simplificado
+      const simplifiedTacoIds = (resultBySimplified.data || [])
+        .map(item => item.taco_id)
+        .filter((id): id is number => id !== null);
+
+      // Se houver IDs do nome simplificado, busca os dados completos
+      let dataBySimplified: TabelaTacoWithMetadata[] = [];
+      if (simplifiedTacoIds.length > 0) {
+        const { data: tacoData } = await supabase
+          .from('tabela_taco')
+          .select(`
+            *,
+            food_metadata (
+              id,
+              taco_id,
+              nome_simplificado,
+              unidade_tipo,
+              peso_por_unidade,
+              created_at,
+              updated_at
+            )
+          `)
+          .in('id', simplifiedTacoIds);
+
+        dataBySimplified = (tacoData || []) as TabelaTacoWithMetadata[];
+      }
 
       setLoading(false);
 
-      if (error) {
-        console.error('Erro ao buscar alimentos:', error);
+      if (resultByAlimento.error) {
+        console.error('Erro ao buscar alimentos:', resultByAlimento.error);
+      }
+
+      // Combina resultados removendo duplicatas
+      const dataByAlimento = (resultByAlimento.data || []) as TabelaTacoWithMetadata[];
+      const seenIds = new Set<number>();
+      const combinedData: TabelaTacoWithMetadata[] = [];
+
+      // Adiciona resultados do nome simplificado primeiro (prioridade)
+      for (const food of dataBySimplified) {
+        if (!seenIds.has(food.id)) {
+          seenIds.add(food.id);
+          combinedData.push(food);
+        }
+      }
+
+      // Adiciona resultados do nome original
+      for (const food of dataByAlimento) {
+        if (!seenIds.has(food.id)) {
+          seenIds.add(food.id);
+          combinedData.push(food);
+        }
+      }
+
+      if (combinedData.length === 0) {
         setFoods([]);
         return;
       }
 
-      if (!data || data.length === 0) {
-        setFoods([]);
-        return;
-      }
-
-      // Ordena por relevância localmente (operação leve com apenas 30 itens)
+      // Ordena por relevância localmente
       const normalizedSearch = normalizeText(searchTermClean);
       const firstWord = normalizedSearch.split(/\s+/)[0] || '';
 
-      data.sort((a, b) => {
+      combinedData.sort((a, b) => {
         const aSimplified = a.food_metadata?.nome_simplificado
           ? normalizeText(a.food_metadata.nome_simplificado)
           : '';
@@ -128,19 +183,26 @@ export function FoodSelect({
         const aOriginal = normalizeText(a.alimento);
         const bOriginal = normalizeText(b.alimento);
 
-        // Prioriza nome que comeca com a busca
-        const aStarts = aSimplified.startsWith(firstWord) || aOriginal.startsWith(firstWord);
-        const bStarts = bSimplified.startsWith(firstWord) || bOriginal.startsWith(firstWord);
-        if (aStarts && !bStarts) return -1;
-        if (!aStarts && bStarts) return 1;
+        // Prioriza nome simplificado que comeca com a busca
+        const aSimplifiedStarts = aSimplified.startsWith(firstWord);
+        const bSimplifiedStarts = bSimplified.startsWith(firstWord);
+        if (aSimplifiedStarts && !bSimplifiedStarts) return -1;
+        if (!aSimplifiedStarts && bSimplifiedStarts) return 1;
 
-        // Ordena alfabeticamente
+        // Depois prioriza nome original que comeca com a busca
+        const aOriginalStarts = aOriginal.startsWith(firstWord);
+        const bOriginalStarts = bOriginal.startsWith(firstWord);
+        if (aOriginalStarts && !bOriginalStarts) return -1;
+        if (!aOriginalStarts && bOriginalStarts) return 1;
+
+        // Ordena alfabeticamente pelo nome de exibicao
         const aDisplay = aSimplified || aOriginal;
         const bDisplay = bSimplified || bOriginal;
         return aDisplay.localeCompare(bDisplay);
       });
 
-      setFoods(data);
+      // Limita a 30 resultados
+      setFoods(combinedData.slice(0, 30));
       setHighlightedIndex(0);
     };
 

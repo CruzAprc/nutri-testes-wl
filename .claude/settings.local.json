@@ -23,7 +23,14 @@
       "Bash(npx tsc:*)",
       "Bash(findstr:*)",
       "Bash(git remote set-url:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(cmd /c start \"\" \"http://localhost:5173\")",
+      "Bash(gh run list:*)",
+      "Bash(cmd /c start \"\" \"http://localhost:5174\")",
+      "Bash(cat:*)",
+      "Bash(npm run preview:*)"
     ],
     "deny": [],
     "ask": []

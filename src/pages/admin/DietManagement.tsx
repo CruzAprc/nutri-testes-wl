@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
-import { Save, Plus, Trash2, Clock, Check, AlertCircle, FileText, RefreshCw, X } from 'lucide-react';
+import { Save, Plus, Trash2, Clock, Check, AlertCircle, FileText, RefreshCw, X, ChevronUp, ChevronDown, Layers, Copy } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { PageContainer, Header } from '../../components/layout';
 import { Card, Input, Button, FoodSelect, Select } from '../../components/ui';
@@ -19,11 +19,12 @@ const MEAL_OPTIONS = [
 
 const UNIT_OPTIONS: { value: UnitType; label: string }[] = [
   { value: 'gramas', label: 'Gramas (g)' },
+  { value: 'ml', label: 'Mililitros (ml)' },
   { value: 'unidade', label: 'Unidade' },
   { value: 'fatia', label: 'Fatia' },
 ];
 
-import type { Profile, DietPlan, Meal, TabelaTaco, FoodSubstitution, UnitType, TabelaTacoWithMetadata } from '../../types/database';
+import type { Profile, DietPlan, Meal, TabelaTaco, FoodSubstitution, UnitType, TabelaTacoWithMetadata, MealSubstitution, MealSubstitutionItem } from '../../types/database';
 import { UNIT_TYPES } from '../../constants/foodUnits';
 import { calculateGramsFromUnits, formatQuantityDisplay, getUnitLabel } from '../../utils/foodUnits';
 import styles from './DietManagement.module.css';
@@ -52,6 +53,7 @@ interface MealFoodWithNutrition {
 
 interface MealWithFoods extends Meal {
   foods: MealFoodWithNutrition[];
+  meal_substitutions: MealSubstitution[];
 }
 
 interface MacroTotals {
@@ -107,7 +109,7 @@ function getStatusIcon(status: MacroStatus): string {
 }
 
 export function DietManagement() {
-  const { id } = useParams<{ id: string }>();
+  const { id, dietId } = useParams<{ id: string; dietId: string }>();
   const [client, setClient] = useState<Profile | null>(null);
   const [macroGoals, setMacroGoals] = useState<MacroGoals>({
     protein_goal: null,
@@ -133,12 +135,19 @@ export function DietManagement() {
   const [newSubstituteFood, setNewSubstituteFood] = useState('');
   const [newSubstituteQty, setNewSubstituteQty] = useState('');
 
+  // Meal Substitutions state
+  const [showMealSubModal, setShowMealSubModal] = useState(false);
+  const [editingMealIndex, setEditingMealIndex] = useState<number | null>(null);
+  const [editingMealSubIndex, setEditingMealSubIndex] = useState<number | null>(null);
+  const [mealSubName, setMealSubName] = useState('');
+  const [mealSubFoods, setMealSubFoods] = useState<MealSubstitutionItem[]>([]);
+
   useEffect(() => {
-    if (id) {
+    if (id && dietId) {
       fetchClient();
       fetchDiet();
     }
-  }, [id]);
+  }, [id, dietId]);
 
   async function fetchClient() {
     const { data } = await supabase.from('profiles').select('*').eq('id', id).single();
@@ -156,31 +165,17 @@ export function DietManagement() {
 
   async function fetchDiet() {
     try {
-      let { data: plan, error: fetchError } = await supabase
+      const { data: plan, error: fetchError } = await supabase
         .from('diet_plans')
         .select('*')
-        .eq('client_id', id)
-        .maybeSingle();
+        .eq('id', dietId)
+        .single();
 
       if (fetchError) {
         console.error('Fetch error:', fetchError);
         alert('Erro ao buscar plano de dieta: ' + fetchError.message);
+        setLoading(false);
         return;
-      }
-
-      if (!plan) {
-        const { data: newPlan, error: insertError } = await supabase
-          .from('diet_plans')
-          .insert({ client_id: id, water_goal_liters: 2 })
-          .select()
-          .single();
-
-        if (insertError) {
-          console.error('Insert error:', insertError);
-          alert('Erro ao criar plano de dieta: ' + insertError.message);
-          return;
-        }
-        plan = newPlan;
       }
 
       if (plan) {
@@ -294,7 +289,11 @@ export function DietManagement() {
               };
             });
 
-            return { ...meal, foods: foodsWithNutrition };
+            return {
+              ...meal,
+              foods: foodsWithNutrition,
+              meal_substitutions: meal.meal_substitutions || [],
+            };
           });
 
           setMeals(mealsWithFoods);
@@ -366,6 +365,7 @@ export function DietManagement() {
 
       // Salvar totais calculados no plano
       const planUpdateData = {
+        name: dietPlan.name || 'Dieta',
         daily_calories: Math.round(dailyTotals.calories) || 0,
         protein_g: Math.round(dailyTotals.protein) || 0,
         carbs_g: Math.round(dailyTotals.carbs) || 0,
@@ -397,6 +397,7 @@ export function DietManagement() {
               name: meal.name || '',
               suggested_time: meal.suggested_time || null,
               order_index: Number(meal.order_index) || 0,
+              meal_substitutions: meal.meal_substitutions || [],
             })
             .select()
             .single();
@@ -413,6 +414,7 @@ export function DietManagement() {
               name: meal.name || '',
               suggested_time: meal.suggested_time || null,
               order_index: Number(meal.order_index) || 0,
+              meal_substitutions: meal.meal_substitutions || [],
             })
             .eq('id', meal.id);
 
@@ -528,6 +530,61 @@ export function DietManagement() {
         .in('id', existingIds);
     }
 
+    // Deletar substituicoes existentes
+    await supabase
+      .from('food_substitutions')
+      .delete()
+      .eq('diet_plan_id', dietPlan.id);
+
+    // Coletar IDs dos alimentos do template para buscar substituicoes
+    const templateFoodIds: string[] = [];
+    const foodIdToNameMap = new Map<string, string>();
+    mealsData.forEach(meal => {
+      (meal.diet_template_meal_foods || []).forEach((food: { id: string; food_name: string }) => {
+        if (food.id) {
+          templateFoodIds.push(food.id);
+          foodIdToNameMap.set(food.id, food.food_name);
+        }
+      });
+    });
+
+    // Buscar substituicoes do template
+    let templateSubstitutionsMap = new Map<string, { substitute_food: string; substitute_quantity: string }[]>();
+    if (templateFoodIds.length > 0) {
+      const { data: templateSubs } = await supabase
+        .from('diet_template_food_substitutions')
+        .select('*')
+        .in('template_food_id', templateFoodIds);
+
+      if (templateSubs) {
+        templateSubs.forEach((sub: { template_food_id: string; substitute_food: string; substitute_quantity: string }) => {
+          const foodName = foodIdToNameMap.get(sub.template_food_id);
+          if (foodName) {
+            const existing = templateSubstitutionsMap.get(foodName) || [];
+            existing.push({
+              substitute_food: sub.substitute_food,
+              substitute_quantity: sub.substitute_quantity,
+            });
+            templateSubstitutionsMap.set(foodName, existing);
+          }
+        });
+      }
+    }
+
+    // Criar substituicoes locais baseadas no template
+    const newSubstitutions: LocalSubstitution[] = [];
+    templateSubstitutionsMap.forEach((subs, foodName) => {
+      subs.forEach((sub, idx) => {
+        newSubstitutions.push({
+          id: `new-${Date.now()}-sub-${foodName}-${idx}`,
+          original_food: foodName,
+          substitute_food: sub.substitute_food,
+          substitute_quantity: sub.substitute_quantity,
+          isNew: true,
+        });
+      });
+    });
+
     // Coleta nomes de alimentos para buscar nutrição
     const allFoodNames = new Set<string>();
     mealsData.forEach(meal => {
@@ -551,7 +608,7 @@ export function DietManagement() {
     const newMeals: MealWithFoods[] = mealsData.map((meal, mealIdx) => {
       const foods = (meal.diet_template_meal_foods || [])
         .sort((a: { order_index: number }, b: { order_index: number }) => a.order_index - b.order_index)
-        .map((food: { food_name: string; quantity: string; order_index: number }, foodIdx: number) => {
+        .map((food: { food_name: string; quantity: string; order_index: number; unit_type?: string; quantity_units?: number }, foodIdx: number) => {
           const tacoFood = nutritionMap.get(food.food_name);
           const qty = parseBrazilianNumber(food.quantity);
           const multiplier = qty / 100;
@@ -568,8 +625,8 @@ export function DietManagement() {
               food_name: food.food_name,
               quantity: food.quantity,
               order_index: food.order_index,
-              unit_type: 'gramas' as UnitType,
-              quantity_units: null,
+              unit_type: (food.unit_type || 'gramas') as UnitType,
+              quantity_units: food.quantity_units || null,
               peso_por_unidade: null,
               calories_per_100g: caloriesPer100g,
               protein_per_100g: proteinPer100g,
@@ -588,8 +645,8 @@ export function DietManagement() {
             food_name: food.food_name,
             quantity: food.quantity,
             order_index: food.order_index,
-            unit_type: 'gramas' as UnitType,
-            quantity_units: null,
+            unit_type: (food.unit_type || 'gramas') as UnitType,
+            quantity_units: food.quantity_units || null,
             peso_por_unidade: null,
           };
         });
@@ -601,10 +658,12 @@ export function DietManagement() {
         suggested_time: meal.suggested_time,
         order_index: mealIdx,
         foods,
+        meal_substitutions: meal.meal_substitutions || [],
       };
     });
 
     setMeals(newMeals);
+    setSubstitutions(newSubstitutions);
     setShowTemplateModal(false);
   }
 
@@ -616,6 +675,7 @@ export function DietManagement() {
       suggested_time: null,
       order_index: meals.length,
       foods: [],
+      meal_substitutions: [],
     };
     setMeals([...meals, newMeal]);
   }
@@ -633,6 +693,60 @@ export function DietManagement() {
       await supabase.from('meals').delete().eq('id', meal.id);
     }
     setMeals(meals.filter((_, i) => i !== index));
+  }
+
+  function moveMealUp(index: number) {
+    if (index <= 0) return;
+    const updated = [...meals];
+    // Swap meals
+    [updated[index - 1], updated[index]] = [updated[index], updated[index - 1]];
+    // Update order_index
+    updated.forEach((meal, i) => {
+      meal.order_index = i;
+    });
+    setMeals(updated);
+  }
+
+  function moveMealDown(index: number) {
+    if (index >= meals.length - 1) return;
+    const updated = [...meals];
+    // Swap meals
+    [updated[index], updated[index + 1]] = [updated[index + 1], updated[index]];
+    // Update order_index
+    updated.forEach((meal, i) => {
+      meal.order_index = i;
+    });
+    setMeals(updated);
+  }
+
+  function duplicateMeal(index: number) {
+    const mealToDuplicate = meals[index];
+    const timestamp = Date.now();
+
+    // Create a deep copy of foods with new IDs
+    const duplicatedFoods: MealFoodWithNutrition[] = mealToDuplicate.foods.map((food, foodIdx) => ({
+      ...food,
+      id: `new-${timestamp}-food-${foodIdx}`,
+      meal_id: '',
+    }));
+
+    // Create a deep copy of meal substitutions with new IDs
+    const duplicatedMealSubs = mealToDuplicate.meal_substitutions.map((sub, subIdx) => ({
+      ...sub,
+      id: `sub-${timestamp}-${subIdx}`,
+    }));
+
+    const duplicatedMeal: MealWithFoods = {
+      id: `new-${timestamp}`,
+      diet_plan_id: dietPlan?.id || '',
+      name: mealToDuplicate.name,
+      suggested_time: mealToDuplicate.suggested_time,
+      order_index: meals.length,
+      foods: duplicatedFoods,
+      meal_substitutions: duplicatedMealSubs,
+    };
+
+    setMeals([...meals, duplicatedMeal]);
   }
 
   function addFood(mealIndex: number) {
@@ -840,6 +954,84 @@ export function DietManagement() {
     setNewSubstituteFood(selectedFood.alimento);
   }
 
+  // Meal Substitution functions
+  function openMealSubModal(mealIndex: number, subIndex: number | null = null) {
+    setEditingMealIndex(mealIndex);
+    setEditingMealSubIndex(subIndex);
+
+    if (subIndex !== null && meals[mealIndex].meal_substitutions[subIndex]) {
+      const sub = meals[mealIndex].meal_substitutions[subIndex];
+      setMealSubName(sub.name);
+      setMealSubFoods([...sub.items]);
+    } else {
+      // Nova substituicao
+      const existingCount = meals[mealIndex].meal_substitutions.length;
+      setMealSubName(`Opcao ${existingCount + 2}`);
+      setMealSubFoods([]);
+    }
+    setShowMealSubModal(true);
+  }
+
+  function closeMealSubModal() {
+    setShowMealSubModal(false);
+    setEditingMealIndex(null);
+    setEditingMealSubIndex(null);
+    setMealSubName('');
+    setMealSubFoods([]);
+  }
+
+  function addMealSubFood() {
+    setMealSubFoods([
+      ...mealSubFoods,
+      { food_name: '', quantity: '', unit_type: 'gramas', quantity_units: null }
+    ]);
+  }
+
+  function updateMealSubFood(index: number, field: keyof MealSubstitutionItem, value: string | number | null) {
+    const updated = [...mealSubFoods];
+    updated[index] = { ...updated[index], [field]: value };
+    setMealSubFoods(updated);
+  }
+
+  function removeMealSubFood(index: number) {
+    setMealSubFoods(mealSubFoods.filter((_, i) => i !== index));
+  }
+
+  function handleMealSubFoodSelect(index: number, selectedFood: TabelaTaco) {
+    const updated = [...mealSubFoods];
+    updated[index] = { ...updated[index], food_name: selectedFood.alimento };
+    setMealSubFoods(updated);
+  }
+
+  function saveMealSubstitution() {
+    if (editingMealIndex === null || !mealSubName.trim()) return;
+
+    const newSub: MealSubstitution = {
+      id: editingMealSubIndex !== null
+        ? meals[editingMealIndex].meal_substitutions[editingMealSubIndex].id
+        : `sub-${Date.now()}`,
+      name: mealSubName.trim(),
+      items: mealSubFoods.filter(f => f.food_name.trim() !== ''),
+    };
+
+    const updated = [...meals];
+    if (editingMealSubIndex !== null) {
+      // Editando existente
+      updated[editingMealIndex].meal_substitutions[editingMealSubIndex] = newSub;
+    } else {
+      // Adicionando nova
+      updated[editingMealIndex].meal_substitutions.push(newSub);
+    }
+    setMeals(updated);
+    closeMealSubModal();
+  }
+
+  function removeMealSubstitution(mealIndex: number, subIndex: number) {
+    const updated = [...meals];
+    updated[mealIndex].meal_substitutions = updated[mealIndex].meal_substitutions.filter((_, i) => i !== subIndex);
+    setMeals(updated);
+  }
+
   if (loading) {
     return (
       <PageContainer hasBottomNav={false}>
@@ -852,7 +1044,7 @@ export function DietManagement() {
   return (
     <PageContainer hasBottomNav={false}>
       <Header
-        title="Gerenciar Dieta"
+        title={dietPlan?.name || 'Dieta'}
         subtitle={client?.full_name}
         showBack
         rightAction={
@@ -864,6 +1056,17 @@ export function DietManagement() {
       />
 
       <main className={styles.content}>
+        {/* Diet Name Card */}
+        <Card className={styles.dietNameCard}>
+          <label className={styles.dietNameLabel}>Nome da Dieta</label>
+          <Input
+            type="text"
+            value={dietPlan?.name || ''}
+            onChange={(e) => setDietPlan(prev => prev ? { ...prev, name: e.target.value } : null)}
+            placeholder="Ex: High Carb, Low Carb..."
+          />
+        </Card>
+
         {/* Comparação com Metas */}
         <Card className={styles.comparisonCard}>
           <div className={styles.comparisonHeader}>
@@ -1032,6 +1235,24 @@ export function DietManagement() {
             return (
               <Card key={meal.id} className={styles.mealCard}>
                 <div className={styles.mealHeader}>
+                  <div className={styles.mealOrderButtons}>
+                    <button
+                      className={styles.orderButton}
+                      onClick={() => moveMealUp(mealIndex)}
+                      disabled={mealIndex === 0}
+                      title="Mover para cima"
+                    >
+                      <ChevronUp size={18} />
+                    </button>
+                    <button
+                      className={styles.orderButton}
+                      onClick={() => moveMealDown(mealIndex)}
+                      disabled={mealIndex === meals.length - 1}
+                      title="Mover para baixo"
+                    >
+                      <ChevronDown size={18} />
+                    </button>
+                  </div>
                   <Select
                     value={meal.name}
                     onChange={(e) => updateMeal(mealIndex, 'name', e.target.value)}
@@ -1046,6 +1267,13 @@ export function DietManagement() {
                       onChange={(e) => updateMeal(mealIndex, 'suggested_time', e.target.value)}
                     />
                   </div>
+                  <button
+                    className={styles.duplicateButton}
+                    onClick={() => duplicateMeal(mealIndex)}
+                    title="Duplicar refeição"
+                  >
+                    <Copy size={18} />
+                  </button>
                   <button
                     className={styles.deleteButton}
                     onClick={() => removeMeal(mealIndex)}
@@ -1145,6 +1373,59 @@ export function DietManagement() {
                     </span>
                   </div>
                 )}
+
+                {/* Meal Substitutions Section */}
+                <div className={styles.mealSubstitutionsSection}>
+                  <div className={styles.mealSubHeader}>
+                    <span className={styles.mealSubLabel}>
+                      <Layers size={16} />
+                      Opcoes de Refeicao ({meal.meal_substitutions.length + 1})
+                    </span>
+                    <button
+                      type="button"
+                      className={styles.addMealSubBtn}
+                      onClick={() => openMealSubModal(mealIndex)}
+                    >
+                      <Plus size={14} />
+                      Adicionar Opcao
+                    </button>
+                  </div>
+
+                  {meal.meal_substitutions.length > 0 && (
+                    <div className={styles.mealSubList}>
+                      {meal.meal_substitutions.map((sub, subIndex) => (
+                        <div key={sub.id} className={styles.mealSubItem}>
+                          <div className={styles.mealSubItemHeader}>
+                            <span className={styles.mealSubItemName}>{sub.name}</span>
+                            <div className={styles.mealSubItemActions}>
+                              <button
+                                type="button"
+                                onClick={() => openMealSubModal(mealIndex, subIndex)}
+                                className={styles.mealSubEditBtn}
+                              >
+                                Editar
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => removeMealSubstitution(mealIndex, subIndex)}
+                                className={styles.mealSubDeleteBtn}
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </div>
+                          <div className={styles.mealSubItemFoods}>
+                            {sub.items.map((item, itemIdx) => (
+                              <span key={itemIdx} className={styles.mealSubItemFood}>
+                                {item.food_name} - {item.quantity}{item.unit_type === 'ml' ? 'ml' : item.unit_type === 'gramas' ? 'g' : ` ${item.unit_type || 'g'}`}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </Card>
             );
           })}
@@ -1274,6 +1555,98 @@ export function DietManagement() {
             <div className={styles.modalFooter}>
               <Button variant="outline" onClick={closeSubstitutionModal}>
                 Fechar
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Substituição de Refeição */}
+      {showMealSubModal && editingMealIndex !== null && (
+        <div className={styles.modalOverlay} onClick={closeMealSubModal}>
+          <div className={styles.mealSubModal} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.modalHeader}>
+              <h3>
+                {editingMealSubIndex !== null ? 'Editar' : 'Nova'} Opcao de Refeicao
+              </h3>
+              <button onClick={closeMealSubModal} className={styles.modalCloseBtn}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className={styles.modalContent}>
+              <div className={styles.mealSubNameField}>
+                <label>Nome da opcao</label>
+                <Input
+                  type="text"
+                  value={mealSubName}
+                  onChange={(e) => setMealSubName(e.target.value)}
+                  placeholder="Ex: Opcao 2, Alternativa..."
+                />
+              </div>
+
+              <div className={styles.mealSubFoodsSection}>
+                <div className={styles.mealSubFoodsHeader}>
+                  <label>Alimentos desta opcao</label>
+                  <button
+                    type="button"
+                    className={styles.addMealSubFoodBtn}
+                    onClick={addMealSubFood}
+                  >
+                    <Plus size={14} />
+                    Alimento
+                  </button>
+                </div>
+
+                {mealSubFoods.length === 0 ? (
+                  <p className={styles.noMealSubFoods}>
+                    Clique em "Alimento" para adicionar.
+                  </p>
+                ) : (
+                  <div className={styles.mealSubFoodsList}>
+                    {mealSubFoods.map((food, idx) => (
+                      <div key={idx} className={styles.mealSubFoodItem}>
+                        <div className={styles.mealSubFoodSelect}>
+                          <FoodSelect
+                            value={food.food_name}
+                            onChange={(name) => updateMealSubFood(idx, 'food_name', name)}
+                            onFoodSelect={(selected) => handleMealSubFoodSelect(idx, selected)}
+                            placeholder="Buscar alimento..."
+                          />
+                        </div>
+                        <div className={styles.mealSubFoodUnit}>
+                          <Select
+                            value={food.unit_type || 'gramas'}
+                            onChange={(e) => updateMealSubFood(idx, 'unit_type', e.target.value)}
+                            options={UNIT_OPTIONS}
+                          />
+                        </div>
+                        <div className={styles.mealSubFoodQty}>
+                          <Input
+                            type="number"
+                            value={food.quantity}
+                            onChange={(e) => updateMealSubFood(idx, 'quantity', e.target.value)}
+                            placeholder={food.unit_type === 'gramas' ? 'g' : food.unit_type === 'ml' ? 'ml' : 'qtd'}
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          className={styles.mealSubFoodDelete}
+                          onClick={() => removeMealSubFood(idx)}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className={styles.modalFooter}>
+              <Button variant="outline" onClick={closeMealSubModal}>
+                Cancelar
+              </Button>
+              <Button onClick={saveMealSubstitution} disabled={!mealSubName.trim()}>
+                Salvar
               </Button>
             </div>
           </div>

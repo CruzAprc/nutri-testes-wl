@@ -159,8 +159,8 @@ function KeyedAnamnesis() {
 }
 
 function KeyedDietManagement() {
-  const { id } = useParams<{ id: string }>();
-  return <DietManagement key={id} />;
+  const { id, dietId } = useParams<{ id: string; dietId: string }>();
+  return <DietManagement key={`${id}-${dietId}`} />;
 }
 
 function KeyedWorkoutManagement() {
@@ -305,7 +305,7 @@ function AppRoutes() {
         }
       />
       <Route
-        path="/admin/aluno/:id/dieta"
+        path="/admin/aluno/:id/dieta/:dietId"
         element={
           <AdminRoute>
             <KeyedDietManagement />
