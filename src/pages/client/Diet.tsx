@@ -240,7 +240,9 @@ export function Diet() {
             id,
             food_name,
             quantity,
-            order_index
+            order_index,
+            unit_type,
+            quantity_units
           )
         ),
         food_substitutions (
@@ -440,7 +442,9 @@ export function Diet() {
             id,
             food_name,
             quantity,
-            order_index
+            order_index,
+            unit_type,
+            quantity_units
           )
         ),
         food_substitutions (
@@ -914,22 +918,29 @@ export function Diet() {
                   )}
 
                   {/* Lista de equivalências inline */}
-                  {isEquivalenceExpanded && hasEquivalences && equivalenceData && (
-                    <div className={styles.inlineEquivalences}>
-                      <span className={styles.equivalenceGroupName}>
-                        {equivalenceData.group.name}
-                      </span>
-                      <span className={styles.equivalenceHint}>
-                        Troque {equivalenceData.currentFood.quantity_grams}g por:
-                      </span>
-                      {equivalenceData.equivalents.map((eq) => (
-                        <div key={eq.id} className={styles.equivalenceRow}>
-                          <span className={styles.equivalenceArrow}>→</span>
-                          <span>{eq.food_name} ({eq.quantity_grams}g)</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  {isEquivalenceExpanded && hasEquivalences && equivalenceData && (() => {
+                    // Calcular proporção: quantidade real / quantidade base
+                    const actualQuantity = parseBrazilianNumber(food.quantity);
+                    const baseQuantity = equivalenceData.currentFood.quantity_grams;
+                    const ratio = baseQuantity > 0 ? actualQuantity / baseQuantity : 1;
+
+                    return (
+                      <div className={styles.inlineEquivalences}>
+                        <span className={styles.equivalenceGroupName}>
+                          {equivalenceData.group.name}
+                        </span>
+                        <span className={styles.equivalenceHint}>
+                          Troque {Math.round(actualQuantity)}g por:
+                        </span>
+                        {equivalenceData.equivalents.map((eq) => (
+                          <div key={eq.id} className={styles.equivalenceRow}>
+                            <span className={styles.equivalenceArrow}>→</span>
+                            <span>{eq.food_name} ({Math.round(eq.quantity_grams * ratio)}g)</span>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </li>
               );
             })}
