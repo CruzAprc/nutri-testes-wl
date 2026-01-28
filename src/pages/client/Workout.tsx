@@ -70,7 +70,7 @@ export function Workout() {
   const exerciseLogsRef = useRef<ExerciseLog>({});
   const [currentDate, setCurrentDate] = useState(getBrasiliaDate());
   const currentDateRef = useRef(currentDate);
-  const fetchAllDataRef = useRef<() => Promise<void>>();
+  const fetchAllDataRef = useRef<(() => Promise<void>) | undefined>(undefined);
 
   // Manter ref sincronizado com o estado
   useEffect(() => {
