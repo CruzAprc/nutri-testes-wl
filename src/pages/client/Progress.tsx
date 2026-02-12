@@ -6,6 +6,7 @@ import { usePageData } from '../../hooks';
 import { PageContainer, Header, BottomNav } from '../../components/layout';
 import { Card, ProgressBar, Button, Input } from '../../components/ui';
 import type { WeightHistory, DailyProgress } from '../../types/database';
+import { getBrasiliaDate } from '../../utils/date';
 import styles from './Progress.module.css';
 
 // Componente separado para o gráfico de peso com linhas conectoras precisas
@@ -99,16 +100,6 @@ function WeightChart({ weightHistory, styles }: { weightHistory: WeightHistory[]
       })}
     </div>
   );
-}
-
-// Retorna a data atual no fuso horário de Brasília
-function getBrasiliaDate(): string {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/Sao_Paulo',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit'
-  }).format(new Date());
 }
 
 export function Progress() {

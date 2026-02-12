@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -8,13 +8,18 @@ export function SplashScreen() {
   const navigate = useNavigate();
   const { user, loading, isAdmin } = useAuth();
   const { settings } = useTheme();
+  const [fadeOut, setFadeOut] = useState(false);
 
   useEffect(() => {
-    // Só redireciona quando o loading terminar
     if (loading) return;
 
-    // Pequeno delay para mostrar a splash
-    const timer = setTimeout(() => {
+    // Start fade-out animation before navigating
+    const fadeTimer = setTimeout(() => {
+      setFadeOut(true);
+    }, 600);
+
+    // Navigate after fade-out completes
+    const navTimer = setTimeout(() => {
       if (user) {
         if (isAdmin) {
           navigate('/admin', { replace: true });
@@ -26,7 +31,10 @@ export function SplashScreen() {
       }
     }, 1000);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(fadeTimer);
+      clearTimeout(navTimer);
+    };
   }, [user, loading, isAdmin, navigate]);
 
   const logoUrl = settings?.logo_main_url || '/logo.jpeg';
@@ -34,7 +42,7 @@ export function SplashScreen() {
   const appDescription = settings?.app_description || 'NUTRICIONISTA';
 
   return (
-    <div className={styles.container}>
+    <div className={`${styles.container} ${fadeOut ? styles.fadeOut : ''}`}>
       <img src={logoUrl} alt="Logo" className={styles.logo} />
       <h1 className={styles.title}>{appName.toUpperCase()}</h1>
       <p className={styles.subtitle}>{appDescription.toUpperCase()}</p>

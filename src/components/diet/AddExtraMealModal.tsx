@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { Plus, X, Search, Trash2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { parseBrazilianNumber } from './FoodSelect';
+import { parseBrazilianNumber, normalizeText } from '../../utils/parsers';
 import { formatFoodName } from '../../utils/formatters';
-import { Modal } from './Modal';
-import { Button } from './Button';
-import { Input } from './Input';
+import { Modal } from '../ui/Modal';
+import { Button } from '../ui/Button';
+import { Input } from '../ui/Input';
 import type { TabelaTaco, UnitType } from '../../types/database';
 import styles from './AddExtraMealModal.module.css';
 
@@ -47,15 +47,6 @@ interface AddExtraMealModalProps {
   isOpen: boolean;
   onClose: () => void;
   onAdd: (meal: ExtraMeal) => void;
-}
-
-function normalizeText(text: string): string {
-  return text
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/,/g, ' ')
-    .trim();
 }
 
 export function AddExtraMealModal({ isOpen, onClose, onAdd }: AddExtraMealModalProps) {

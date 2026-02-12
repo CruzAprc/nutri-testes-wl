@@ -8,17 +8,8 @@ import { usePageData } from '../../hooks';
 import { PageContainer, BottomNav } from '../../components/layout';
 import { Card, ProgressBar } from '../../components/ui';
 import type { DailyProgress } from '../../types/database';
+import { getBrasiliaDate } from '../../utils/date';
 import styles from './Home.module.css';
-
-// Retorna a data atual no fuso horario de Brasilia
-function getBrasiliaDate(): string {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/Sao_Paulo',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit'
-  }).format(new Date());
-}
 
 export function Home() {
   const { profile } = useAuth();

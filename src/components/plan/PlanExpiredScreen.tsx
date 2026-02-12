@@ -3,16 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { Utensils, Dumbbell, TrendingUp, CreditCard } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
+import { getBrasiliaDate } from '../../utils/date';
 import styles from './PlanExpiredScreen.module.css';
-
-// Retorna a data atual no fuso horário de Brasília
-function getBrasiliaDate(): string {
-  const now = new Date();
-  const brasiliaOffset = -3 * 60;
-  const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
-  const brasiliaTime = new Date(utc + (brasiliaOffset * 60000));
-  return brasiliaTime.toISOString().split('T')[0];
-}
 
 interface PlanExpiredScreenProps {
   planEndDate: string;

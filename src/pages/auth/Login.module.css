@@ -1,56 +1,164 @@
+/* ==========================================
+   LOGIN - SWIPE UP BOTTOM SHEET DESIGN
+   ========================================== */
+
 .container {
-  min-height: 100vh;
-  min-height: 100dvh;
-  background: linear-gradient(180deg, var(--dark) 0%, var(--secondary) 100%);
+  height: 100vh;
+  height: 100dvh;
+  background: linear-gradient(160deg, #080d15 0%, var(--secondary) 50%, #1c4c9b 100%);
+  position: relative;
+  overflow: hidden;
+  user-select: none;
+}
+
+.container.noTouch {
+  touch-action: none;
+}
+
+/* ===== WELCOME / HEADER AREA ===== */
+.header {
+  position: absolute;
+  inset: 0;
   display: flex;
   flex-direction: column;
-}
-
-.header {
-  flex: 1;
-  display: flex;
   align-items: center;
   justify-content: center;
-  padding: 40px 20px;
+  gap: 16px;
+  padding: 48px 20px 120px;
+  will-change: transform;
 }
 
-.logo {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.logoText {
-  width: 150px;
+.welcomeLogo {
+  width: 160px;
   height: auto;
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(28, 76, 155, 0.4);
+  animation: logoEntry 0.8s ease-out both;
+  object-fit: contain;
 }
 
+@keyframes logoEntry {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.welcomeTitle {
+  font-size: 28px;
+  font-weight: 700;
+  color: white;
+  margin: 0;
+  text-align: center;
+  animation: textFadeIn 0.6s ease-out 0.3s both;
+}
+
+.welcomeSubtitle {
+  font-size: 16px;
+  font-weight: 500;
+  color: white;
+  letter-spacing: 6px;
+  margin: 0;
+  animation: textFadeIn 0.6s ease-out 0.5s both;
+}
+
+@keyframes textFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 0.9;
+    transform: translateY(0);
+  }
+}
+
+/* ===== SWIPE INDICATOR ===== */
+.swipeIndicator {
+  position: absolute;
+  bottom: 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  animation: bounceUp 2s ease-in-out 1s infinite;
+  transition: opacity 0.2s ease;
+}
+
+.swipeHidden {
+  opacity: 0;
+}
+
+@keyframes bounceUp {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+/* ===== FORM CARD (BOTTOM SHEET) ===== */
 .formCard {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
   background: var(--bg-card);
-  border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
-  padding: 32px 20px 40px;
-  animation: slideUp 0.5s ease-out;
+  border-radius: 24px 24px 0 0;
+  padding: 0 24px 40px;
+  will-change: transform;
+  box-shadow: 0 -4px 30px rgba(0, 0, 0, 0.15);
+  max-height: 75vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
+/* ===== DRAG HANDLE ===== */
+.dragHandle {
+  display: flex;
+  justify-content: center;
+  padding: 12px 0 20px;
+  cursor: grab;
+}
+
+.handleBar {
+  width: 40px;
+  height: 4px;
+  background: var(--border-light, #e2e8f0);
+  border-radius: 2px;
+}
+
+/* ===== TITLES ===== */
 .title {
   font-size: 28px;
   font-weight: 700;
-  color: var(--primary);
-  margin: 0 0 8px;
+  color: var(--text-primary);
+  margin: 0;
 }
 
 .subtitle {
   font-size: 15px;
   color: var(--text-muted);
-  margin: 0 0 32px;
+  margin: 0 0 28px;
 }
 
+/* ===== FORM ===== */
 .form {
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
 
+/* ===== PASSWORD TOGGLE ===== */
 .passwordWrapper {
   position: relative;
 }
@@ -62,17 +170,25 @@
   transform: translateY(-50%);
   color: var(--text-light);
   padding: 4px;
+  transition: color 0.2s ease;
+  z-index: 1;
 }
 
 .togglePassword:hover {
   color: var(--text-secondary);
 }
 
+/* ===== MESSAGES ===== */
 .error {
   color: var(--error);
   font-size: 14px;
   text-align: center;
   margin: 0;
+  padding: 12px 16px;
+  background: rgba(239, 68, 68, 0.08);
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(239, 68, 68, 0.15);
+  animation: fadeInError 0.3s ease-out;
 }
 
 .success {
@@ -80,46 +196,40 @@
   font-size: 14px;
   text-align: center;
   margin: 0;
+  padding: 12px 16px;
+  background: rgba(34, 197, 94, 0.08);
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(34, 197, 94, 0.15);
+  animation: fadeInError 0.3s ease-out;
 }
 
+@keyframes fadeInError {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ===== FORGOT PASSWORD ===== */
 .forgotPassword {
   color: var(--primary);
   font-size: 14px;
   font-weight: 500;
   text-align: center;
-  margin-top: 8px;
+  margin-top: 4px;
+  transition: color 0.2s ease;
 }
 
 .forgotPassword:hover:not(:disabled) {
+  color: var(--primary-hover);
   text-decoration: underline;
 }
 
 .forgotPassword:disabled {
   color: var(--text-muted);
   cursor: not-allowed;
-}
-
-.adminLink {
-  margin-top: 24px;
-  text-align: center;
-}
-
-.adminLink a {
-  color: var(--text-muted);
-  font-size: 13px;
-  text-decoration: none;
-}
-
-.adminLink a:hover {
-  color: var(--primary);
-  text-decoration: underline;
-}
-
-@keyframes slideUp {
-  from {
-    transform: translateY(100%);
-  }
-  to {
-    transform: translateY(0);
-  }
 }

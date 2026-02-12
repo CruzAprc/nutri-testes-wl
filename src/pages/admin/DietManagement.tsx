@@ -3,8 +3,9 @@ import { useParams } from 'react-router-dom';
 import { Save, Plus, Trash2, Clock, Check, AlertCircle, FileText, RefreshCw, X, ChevronUp, ChevronDown, Layers, Copy } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { PageContainer, Header } from '../../components/layout';
-import { Card, Input, Button, FoodSelect, Select } from '../../components/ui';
-import { parseBrazilianNumber } from '../../components/ui/FoodSelect';
+import { Card, Input, Button, Select } from '../../components/ui';
+import { FoodSelect } from '../../components/diet/FoodSelect';
+import { parseBrazilianNumber } from '../../utils/parsers';
 
 const MEAL_OPTIONS = [
   { value: 'Café da Manhã', label: 'Café da Manhã' },

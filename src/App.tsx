@@ -2,7 +2,9 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams } from '
 import { useMemo } from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
-import { PlanExpiredScreen, PlanExpiringBanner, InstallPWA } from './components/ui';
+import { PlanExpiredScreen } from './components/plan/PlanExpiredScreen';
+import { PlanExpiringBanner } from './components/plan/PlanExpiringBanner';
+import { InstallPWA } from './components/pwa/InstallPWA';
 
 // Auth pages
 import { SplashScreen } from './pages/auth/SplashScreen';
@@ -31,15 +33,7 @@ import { FinancialDashboard } from './pages/admin/FinancialDashboard';
 
 // Public pages
 import { CheckoutPage } from './pages/public/CheckoutPage';
-
-// Helper function for Brasilia date
-function getBrasiliaDate(): string {
-  const now = new Date();
-  const brasiliaOffset = -3 * 60;
-  const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
-  const brasiliaTime = new Date(utc + (brasiliaOffset * 60000));
-  return brasiliaTime.toISOString().split('T')[0];
-}
+import { getBrasiliaDate } from './utils/date';
 
 // Componente para rotas de ALUNO (não-admin)
 function ClientRoute({ children }: { children: React.ReactNode }) {

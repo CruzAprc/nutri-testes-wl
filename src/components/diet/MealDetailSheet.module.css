@@ -1,0 +1,558 @@
+/* ==========================================
+   BACKDROP + OVERLAY
+   ========================================== */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(0, 0, 0, 0.5);
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* ==========================================
+   SHEET CONTAINER
+   ========================================== */
+.sheet {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 101;
+  height: 85vh;
+  background: #ffffff;
+  border-radius: 24px 24px 0 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: slideUp 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  will-change: transform;
+  box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.15);
+}
+
+.sheetClosing {
+  animation: sheetSlideDown 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+@keyframes sheetSlideDown {
+  from { transform: translateY(0); }
+  to { transform: translateY(100%); }
+}
+
+/* ==========================================
+   DRAG HANDLE
+   ========================================== */
+.dragHandle {
+  display: flex;
+  justify-content: center;
+  padding: 12px 0 4px;
+  cursor: grab;
+  flex-shrink: 0;
+}
+
+.dragHandle:active {
+  cursor: grabbing;
+}
+
+.handleBar {
+  width: 40px;
+  height: 4px;
+  border-radius: 100px;
+  background: #d1d5db;
+}
+
+/* ==========================================
+   HEADER
+   ========================================== */
+.header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 16px 12px;
+  flex-shrink: 0;
+}
+
+.backButton {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #f3f4f6;
+  color: #374151;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.2s;
+}
+
+.backButton:hover {
+  background: #e5e7eb;
+}
+
+.headerTitle {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0;
+  flex: 1;
+  text-align: center;
+  padding-right: 36px; /* compensate for back button to center title */
+}
+
+/* ==========================================
+   TABS (horizontal scroll)
+   ========================================== */
+.tabs {
+  padding: 0 16px 14px;
+  flex-shrink: 0;
+}
+
+.tabsScroll {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  padding: 2px 0;
+}
+
+.tabsScroll::-webkit-scrollbar {
+  display: none;
+}
+
+.tab {
+  flex-shrink: 0;
+  padding: 8px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.2s;
+  scroll-snap-align: center;
+  white-space: nowrap;
+}
+
+.tab:hover {
+  border-color: #1a237e;
+  color: #1a237e;
+  background: #f5f5ff;
+}
+
+.tabActive {
+  background: #1a237e;
+  border-color: #1a237e;
+  color: #ffffff;
+}
+
+.tabActive:hover {
+  background: #1a237e;
+  border-color: #1a237e;
+  color: #ffffff;
+}
+
+/* ==========================================
+   SCROLLABLE BODY
+   ========================================== */
+.body {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 0 16px 100px;
+}
+
+/* ==========================================
+   MEAL OPTIONS TABS (Opcao 1, Opcao 2)
+   ========================================== */
+.mealOptionsTabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.mealOptionTab {
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.mealOptionTab:hover {
+  background: #f3f4f6;
+  border-color: #1a237e;
+  color: #1a237e;
+}
+
+.mealOptionTabActive {
+  background: #1a237e;
+  border-color: #1a237e;
+  color: #ffffff;
+}
+
+.mealOptionTabActive:hover {
+  background: #1a237e;
+  border-color: #1a237e;
+  color: #ffffff;
+}
+
+/* ==========================================
+   SUMMARY CARD (gradient background)
+   ========================================== */
+.summaryCard {
+  background: linear-gradient(135deg, #e8eaf6, #c5cae9);
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.summaryInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.summaryTitle {
+  font-size: 17px;
+  font-weight: 700;
+  color: #1a237e;
+  margin: 0 0 6px;
+}
+
+.summaryMacros {
+  font-size: 14px;
+  color: #37474f;
+  margin: 0 0 6px;
+  font-weight: 500;
+}
+
+.summaryTime {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #546e7a;
+  margin: 0;
+}
+
+.summaryIcon {
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 32px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* ==========================================
+   FOOD SECTION
+   ========================================== */
+.foodSection {
+  margin-bottom: 16px;
+}
+
+.foodSectionTitle {
+  font-size: 12px;
+  font-weight: 700;
+  color: #9e9e9e;
+  margin: 0 0 12px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+/* ==========================================
+   FOOD LIST
+   ========================================== */
+.foodList {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.foodItemWrapper {
+  display: flex;
+  flex-direction: column;
+}
+
+.foodCard {
+  background: #ffffff;
+  border: 1px solid #f0f0f0;
+  border-radius: 12px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.foodCheck {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #d1fae5;
+  color: #10b981;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.foodInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.foodName {
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
+  color: #1f2937;
+  line-height: 1.3;
+}
+
+.foodDetails {
+  display: block;
+  font-size: 13px;
+  color: #6b7280;
+  margin-top: 2px;
+}
+
+/* ==========================================
+   SHOW MORE BUTTON
+   ========================================== */
+.showMoreButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a237e;
+  background: #e8eaf6;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background 0.2s;
+  margin-top: 8px;
+}
+
+.showMoreButton:hover {
+  background: #c5cae9;
+}
+
+/* ==========================================
+   SUBSTITUTION TOGGLE (inside food card)
+   ========================================== */
+.substitutionToggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 40px;
+  margin-top: 4px;
+  padding: 6px 12px;
+  font-size: 13px;
+  color: #f59e0b;
+  background: transparent;
+  border-radius: 8px;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.substitutionToggle:hover {
+  background: rgba(245, 158, 11, 0.08);
+}
+
+.substitutionToggle span {
+  font-weight: 600;
+}
+
+/* ==========================================
+   INLINE SUBSTITUTIONS
+   ========================================== */
+.inlineSubstitutions {
+  margin-left: 40px;
+  margin-top: 4px;
+  padding: 12px 16px;
+  background: #fffbeb;
+  border-left: 3px solid #f59e0b;
+  border-radius: 0 12px 12px 0;
+  animation: expandIn 0.2s ease-out;
+}
+
+@keyframes expandIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.substitutionHint {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  color: #92400e;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.substitutionRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  font-size: 14px;
+  color: #374151;
+}
+
+.substitutionRow:not(:last-child) {
+  border-bottom: 1px dashed #fde68a;
+}
+
+.substitutionArrow {
+  color: #f59e0b;
+  font-weight: 700;
+}
+
+/* ==========================================
+   EQUIVALENCE TOGGLE
+   ========================================== */
+.equivalenceToggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 40px;
+  margin-top: 4px;
+  padding: 6px 12px;
+  font-size: 13px;
+  color: #7c3aed;
+  background: transparent;
+  border-radius: 8px;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.equivalenceToggle:hover {
+  background: rgba(124, 58, 237, 0.08);
+}
+
+.equivalenceToggle span {
+  font-weight: 600;
+}
+
+/* ==========================================
+   INLINE EQUIVALENCES
+   ========================================== */
+.inlineEquivalences {
+  margin-left: 40px;
+  margin-top: 4px;
+  padding: 12px 16px;
+  background: #f5f3ff;
+  border-left: 3px solid #7c3aed;
+  border-radius: 0 12px 12px 0;
+  animation: expandIn 0.2s ease-out;
+}
+
+.equivalenceGroupName {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+  color: #7c3aed;
+  margin-bottom: 6px;
+}
+
+.equivalenceHint {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  color: #6d28d9;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.equivalenceRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  font-size: 14px;
+  color: #374151;
+}
+
+.equivalenceRow:not(:last-child) {
+  border-bottom: 1px dashed #ddd6fe;
+}
+
+.equivalenceArrow {
+  color: #7c3aed;
+  font-weight: 700;
+}
+
+/* ==========================================
+   BOTTOM ACTION (sticky footer)
+   ========================================== */
+.bottomAction {
+  flex-shrink: 0;
+  padding: 16px;
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+  background: #ffffff;
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.completeButton {
+  width: 100%;
+  height: 52px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #ffffff;
+  background: #1a237e;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.completeButton:hover {
+  background: #0d1642;
+}
+
+.completeButtonDone {
+  background: #10b981;
+}
+
+.completeButtonDone:hover {
+  background: #059669;
+}

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Search, Plus, X, Trash2, Clock, ChevronDown, ChevronUp, Copy, RefreshCw, Layers } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { Input, Card, Button, FoodSelect, Select } from '../ui';
+import { Input, Card, Button, Select } from '../ui';
+import { FoodSelect } from '../diet/FoodSelect';
 import type { TabelaTaco, TemplateFoodSubstitution, UnitType, MealSubstitution, MealSubstitutionItem } from '../../types/database';
 import styles from './DietTemplatesManager.module.css';
 

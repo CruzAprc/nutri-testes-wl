@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Search, Plus, X, Trash2, ChevronDown, ChevronUp, Copy, GripVertical } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { Input, Card, Button, ExerciseSelect } from '../ui';
+import { Input, Card, Button } from '../ui';
+import { ExerciseSelect } from '../workout/ExerciseSelect';
 import { TRAINING_TECHNIQUES, EFFORT_PARAMETERS } from '../../constants/trainingTechniques';
 import styles from './WorkoutTemplatesManager.module.css';
 

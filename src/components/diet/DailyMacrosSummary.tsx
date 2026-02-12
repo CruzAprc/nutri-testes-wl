@@ -1,5 +1,5 @@
 import { TrendingUp } from 'lucide-react';
-import { ProgressBar } from './ProgressBar';
+import { ProgressBar } from '../ui/ProgressBar';
 import styles from './DailyMacrosSummary.module.css';
 
 interface MacroTotals {

@@ -1,15 +1,16 @@
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
-import { Clock, ChevronRight, ChevronDown, ChevronUp, Plus, Trash2, RefreshCw } from 'lucide-react';
+import { Clock, ChevronRight, Plus, Trash2 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { usePageData } from '../../hooks';
 import { PageContainer, Header, BottomNav } from '../../components/layout';
-import { Card, Checkbox, Button, Modal, MacroPieChart, DailyMacrosSummary, AddExtraMealModal } from '../../components/ui';
-import type { ExtraMeal } from '../../components/ui';
-import { parseBrazilianNumber } from '../../components/ui/FoodSelect';
-import { formatFoodName } from '../../utils/formatters';
-import { formatQuantityDisplay } from '../../utils/foodUnits';
-import { UNIT_TYPES } from '../../constants/foodUnits';
+import { Card, Checkbox, Button } from '../../components/ui';
+import { DailyMacrosSummary } from '../../components/diet/DailyMacrosSummary';
+import { AddExtraMealModal } from '../../components/diet/AddExtraMealModal';
+import { MealDetailSheet } from '../../components/diet/MealDetailSheet';
+import type { ExtraMeal } from '../../components/diet/AddExtraMealModal';
+import { parseBrazilianNumber } from '../../utils/parsers';
+import { getBrasiliaDate } from '../../utils/date';
 import type { Meal, MealFood, FoodSubstitution, UnitType, FoodEquivalenceGroup, FoodEquivalence, DietPlan, MealSubstitution, MealSubstitutionItem } from '../../types/database';
 import styles from './Diet.module.css';
 
@@ -31,11 +32,11 @@ function setStoredDietId(dietId: string): void {
 }
 
 // Tipo para agrupar equivalencias por grupo
-interface EquivalenceGroupWithFoods extends FoodEquivalenceGroup {
+export interface EquivalenceGroupWithFoods extends FoodEquivalenceGroup {
   foods: FoodEquivalence[];
 }
 
-interface MealFoodWithNutrition extends MealFood {
+export interface MealFoodWithNutrition extends MealFood {
   calories?: number;
   protein?: number;
   carbs?: number;
@@ -44,7 +45,7 @@ interface MealFoodWithNutrition extends MealFood {
 }
 
 // Substitution item with nutrition data
-interface MealSubstitutionItemWithNutrition extends MealSubstitutionItem {
+export interface MealSubstitutionItemWithNutrition extends MealSubstitutionItem {
   calories?: number;
   protein?: number;
   carbs?: number;
@@ -53,7 +54,7 @@ interface MealSubstitutionItemWithNutrition extends MealSubstitutionItem {
 }
 
 // Substitution with calculated totals
-interface MealSubstitutionWithNutrition extends Omit<MealSubstitution, 'items'> {
+export interface MealSubstitutionWithNutrition extends Omit<MealSubstitution, 'items'> {
   items: MealSubstitutionItemWithNutrition[];
   totalCalories: number;
   totalProtein: number;
@@ -61,23 +62,13 @@ interface MealSubstitutionWithNutrition extends Omit<MealSubstitution, 'items'> 
   totalFats: number;
 }
 
-interface MealWithNutrition extends Meal {
+export interface MealWithNutrition extends Meal {
   foods: MealFoodWithNutrition[];
   totalCalories: number;
   totalProtein: number;
   totalCarbs: number;
   totalFats: number;
   meal_substitutions_with_nutrition?: MealSubstitutionWithNutrition[];
-}
-
-// Retorna a data atual no fuso horário de Brasília (UTC-3) no formato YYYY-MM-DD
-function getBrasiliaDate(): string {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/Sao_Paulo',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit'
-  }).format(new Date());
 }
 
 // Retorna a data formatada para exibição no header
@@ -96,14 +87,13 @@ export function Diet() {
   const [meals, setMeals] = useState<MealWithNutrition[]>([]);
   const [completedMeals, setCompletedMeals] = useState<string[]>([]);
   const [selectedMeal, setSelectedMeal] = useState<MealWithNutrition | null>(null);
+  const [selectedMealIndex, setSelectedMealIndex] = useState(0);
   const [substitutions, setSubstitutions] = useState<FoodSubstitution[]>([]);
-  const [expandedFoods, setExpandedFoods] = useState<Set<string>>(new Set());
   const [currentDate, setCurrentDate] = useState(getBrasiliaDate());
   const currentDateRef = useRef(currentDate);
   const [extraMeals, setExtraMeals] = useState<ExtraMeal[]>([]);
   const [showAddExtraMeal, setShowAddExtraMeal] = useState(false);
   const [equivalenceGroups, setEquivalenceGroups] = useState<EquivalenceGroupWithFoods[]>([]);
-  const [expandedEquivalences, setExpandedEquivalences] = useState<Set<string>>(new Set());
   // Track which meal option (0 = original, 1+ = substitution index) is selected for each meal
   const [selectedMealOptions, setSelectedMealOptions] = useState<Record<string, number>>({});
 
@@ -852,84 +842,6 @@ export function Diet() {
     setSubstitutions(dietPlanData.food_substitutions || []);
   }
 
-  // Encontrar equivalencias para um alimento (verifica nome original e nome_simplificado)
-  function getEquivalencesForFood(foodName: string, displayName?: string): { group: FoodEquivalenceGroup; currentFood: FoodEquivalence; equivalents: FoodEquivalence[] } | null {
-    const normalizedName = foodName.toLowerCase().trim();
-    const normalizedDisplayName = displayName?.toLowerCase().trim();
-
-    for (const group of equivalenceGroups) {
-      let currentFood: FoodEquivalence | undefined = undefined;
-
-      // 1. Primeiro tenta match EXATO pelo nome_simplificado (displayName)
-      if (normalizedDisplayName) {
-        currentFood = group.foods.find((f) => f.food_name.toLowerCase().trim() === normalizedDisplayName);
-      }
-
-      // 2. Se não encontrou, tenta match EXATO pelo nome original
-      if (!currentFood) {
-        currentFood = group.foods.find(
-          (f) => f.food_name.toLowerCase().trim() === normalizedName
-        );
-      }
-
-      // 3. Se não encontrou, tenta match PARCIAL (nome do alimento CONTÉM o nome da equivalência)
-      if (!currentFood) {
-        currentFood = group.foods.find((f) => {
-          const eqName = f.food_name.toLowerCase().trim();
-          return normalizedName.includes(eqName) ||
-                 eqName.includes(normalizedName) ||
-                 (normalizedDisplayName && (
-                   normalizedDisplayName.includes(eqName) ||
-                   eqName.includes(normalizedDisplayName)
-                 ));
-        });
-      }
-
-      // 4. Match especial para "Porção de X" - busca pelo nome do GRUPO
-      //    Ex: "Porção de Fruta" -> busca grupo que contém "Fruta" no nome
-      if (!currentFood) {
-        const groupName = group.name.toLowerCase().trim();
-        // Verifica se é um alimento do tipo "Porção de X" e se o grupo corresponde
-        const portionMatch = normalizedName.match(/porção\s+de\s+(\w+)/i) ||
-                            normalizedName.match(/porcao\s+de\s+(\w+)/i);
-        if (portionMatch && group.foods.length > 0) {
-          const portionType = portionMatch[1].toLowerCase();
-          // Se o nome do grupo contém o tipo da porção (ex: "Fruta" em "Frutas")
-          if (groupName.includes(portionType) || portionType.includes(groupName.replace('s', ''))) {
-            // Para "Porção de X", retorna TODOS os alimentos do grupo como equivalentes
-            // Usa o primeiro alimento como referência para cálculo proporcional
-            return {
-              group,
-              currentFood: group.foods[0],
-              equivalents: group.foods, // Retorna TODOS (incluindo o primeiro)
-            };
-          }
-        }
-      }
-
-      if (currentFood) {
-        // Retornar todos os outros alimentos do grupo (exceto o atual)
-        const equivalents = group.foods.filter((f) => f.id !== currentFood!.id);
-        return { group, currentFood, equivalents };
-      }
-    }
-
-    return null;
-  }
-
-  // Toggle para expandir/colapsar equivalencias
-  function toggleEquivalenceExpansion(foodId: string) {
-    setExpandedEquivalences((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(foodId)) {
-        newSet.delete(foodId);
-      } else {
-        newSet.add(foodId);
-      }
-      return newSet;
-    });
-  }
-
   async function toggleMeal(mealId: string) {
     const today = getBrasiliaDate();
     const isCompleted = completedMeals.includes(mealId);
@@ -983,34 +895,14 @@ export function Diet() {
     return time.slice(0, 5);
   }
 
-  function getSubstitutionsForFood(foodName: string): FoodSubstitution[] {
-    return substitutions.filter(
-      (sub) => sub.original_food.toLowerCase() === foodName.toLowerCase()
-    );
-  }
-
-  function toggleFoodExpansion(foodId: string) {
-    setExpandedFoods((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(foodId)) {
-        newSet.delete(foodId);
-      } else {
-        newSet.add(foodId);
-      }
-      return newSet;
-    });
-  }
-
   function handleOpenMeal(meal: MealWithNutrition) {
+    const idx = meals.findIndex((m) => m.id === meal.id);
+    setSelectedMealIndex(idx >= 0 ? idx : 0);
     setSelectedMeal(meal);
-    setExpandedFoods(new Set()); // Reset expanded foods when opening a new meal
-    setExpandedEquivalences(new Set()); // Reset expanded equivalences
   }
 
   function handleCloseMeal() {
     setSelectedMeal(null);
-    setExpandedFoods(new Set());
-    setExpandedEquivalences(new Set());
   }
 
   // Skeleton de carregamento
@@ -1191,214 +1083,18 @@ export function Diet() {
         )}
       </main>
 
-      <Modal
+      <MealDetailSheet
         isOpen={!!selectedMeal}
         onClose={handleCloseMeal}
-        title={selectedMeal?.name}
-        subtitle={selectedMeal?.suggested_time ? formatTime(selectedMeal.suggested_time) : undefined}
-        showCheckbox
-        checked={selectedMeal ? completedMeals.includes(selectedMeal.id) : false}
-      >
-        <div className={styles.modalContent}>
-          {/* Meal Options Tabs in Modal */}
-          {selectedMeal && selectedMeal.meal_substitutions_with_nutrition && selectedMeal.meal_substitutions_with_nutrition.length > 0 && (
-            <div className={styles.mealOptionsTabs}>
-              {Array.from({ length: selectedMeal.meal_substitutions_with_nutrition.length + 1 }).map((_, idx) => (
-                <button
-                  key={idx}
-                  className={`${styles.mealOptionTab} ${(selectedMealOptions[selectedMeal.id] || 0) === idx ? styles.mealOptionTabActive : ''}`}
-                  onClick={() => setSelectedMealOptions(prev => ({ ...prev, [selectedMeal.id]: idx }))}
-                >
-                  {idx === 0 ? 'Opção 1' : selectedMeal.meal_substitutions_with_nutrition![idx - 1].name || `Opção ${idx + 1}`}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* Gráfico de Macros - show for original option */}
-          {selectedMeal && (selectedMealOptions[selectedMeal.id] || 0) === 0 && (selectedMeal.totalProtein > 0 || selectedMeal.totalCarbs > 0) && (
-            <div className={styles.chartSection}>
-              <MacroPieChart
-                protein={selectedMeal.totalProtein}
-                carbs={selectedMeal.totalCarbs}
-                fats={selectedMeal.totalFats}
-                calories={selectedMeal.totalCalories}
-                size="md"
-              />
-            </div>
-          )}
-
-          {/* Gráfico de Macros - show for substitution options */}
-          {selectedMeal && (selectedMealOptions[selectedMeal.id] || 0) > 0 && selectedMeal.meal_substitutions_with_nutrition && (() => {
-            const sub = selectedMeal.meal_substitutions_with_nutrition[(selectedMealOptions[selectedMeal.id] || 0) - 1];
-            return sub && (sub.totalProtein > 0 || sub.totalCarbs > 0) ? (
-              <div className={styles.chartSection}>
-                <MacroPieChart
-                  protein={sub.totalProtein}
-                  carbs={sub.totalCarbs}
-                  fats={sub.totalFats}
-                  calories={sub.totalCalories}
-                  size="md"
-                />
-              </div>
-            ) : null;
-          })()}
-
-          <h4 className={styles.modalLabel}>Alimentos:</h4>
-
-          {/* Show original foods (option 0) */}
-          {selectedMeal && (selectedMealOptions[selectedMeal.id] || 0) === 0 && (
-            <ul className={styles.foodList}>
-              {selectedMeal.foods.map((food) => {
-              const foodSubs = getSubstitutionsForFood(food.food_name);
-              const isExpanded = expandedFoods.has(food.id);
-              const hasSubstitutions = foodSubs.length > 0;
-
-              // Verificar equivalencias (usando nome_simplificado se disponivel)
-              const equivalenceData = getEquivalencesForFood(food.food_name, food.display_name);
-              const hasEquivalences = equivalenceData && equivalenceData.equivalents.length > 0;
-              const isEquivalenceExpanded = expandedEquivalences.has(food.id);
-
-              // Format quantity display based on unit_type
-              const quantityDisplay = formatQuantityDisplay(
-                parseBrazilianNumber(food.quantity),
-                food.quantity_units,
-                food.unit_type || 'gramas'
-              );
-
-              return (
-                <li key={food.id} className={styles.foodItemWrapper}>
-                  <div className={styles.foodItem}>
-                    <span className={styles.foodBullet} />
-                    <div className={styles.foodInfo}>
-                      <span className={styles.foodName}>
-                        {food.display_name || formatFoodName(food.food_name)}
-                      </span>
-                      <span className={styles.foodDetails}>
-                        {quantityDisplay}
-                        {food.calories !== undefined && food.calories > 0 && (
-                          <> • {Math.round(food.calories)} kcal</>
-                        )}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Botão para ver substituições */}
-                  {hasSubstitutions && (
-                    <button
-                      className={styles.substitutionToggle}
-                      onClick={() => toggleFoodExpansion(food.id)}
-                    >
-                      {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                      <span>Ver substituicoes ({foodSubs.length})</span>
-                    </button>
-                  )}
-
-                  {/* Lista de substituições inline */}
-                  {isExpanded && hasSubstitutions && (
-                    <div className={styles.inlineSubstitutions}>
-                      <span className={styles.substitutionHint}>Troque por:</span>
-                      {foodSubs.map((sub) => (
-                        <div key={sub.id} className={styles.substitutionRow}>
-                          <span className={styles.substitutionArrow}>→</span>
-                          <span>{formatFoodName(sub.substitute_food)} ({sub.substitute_quantity}g)</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Botão para ver equivalências */}
-                  {hasEquivalences && (
-                    <button
-                      className={styles.equivalenceToggle}
-                      onClick={() => toggleEquivalenceExpansion(food.id)}
-                    >
-                      <RefreshCw size={16} />
-                      {isEquivalenceExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                      <span>Ver equivalencias ({equivalenceData.equivalents.length})</span>
-                    </button>
-                  )}
-
-                  {/* Lista de equivalências inline */}
-                  {isEquivalenceExpanded && hasEquivalences && equivalenceData && (() => {
-                    // Calcular proporção: quantidade real / quantidade base
-                    const actualQuantity = parseBrazilianNumber(food.quantity);
-                    const baseQuantity = equivalenceData.currentFood.quantity_grams;
-                    const ratio = baseQuantity > 0 ? actualQuantity / baseQuantity : 1;
-
-                    return (
-                      <div className={styles.inlineEquivalences}>
-                        <span className={styles.equivalenceGroupName}>
-                          {equivalenceData.group.name}
-                        </span>
-                        <span className={styles.equivalenceHint}>
-                          Troque {Math.round(actualQuantity)}g por:
-                        </span>
-                        {equivalenceData.equivalents.map((eq) => (
-                          <div key={eq.id} className={styles.equivalenceRow}>
-                            <span className={styles.equivalenceArrow}>→</span>
-                            <span>{eq.food_name} ({Math.round(eq.quantity_grams * ratio)}g)</span>
-                          </div>
-                        ))}
-                      </div>
-                    );
-                  })()}
-                </li>
-              );
-            })}
-            </ul>
-          )}
-
-          {/* Show substitution foods (option > 0) */}
-          {selectedMeal && (selectedMealOptions[selectedMeal.id] || 0) > 0 && selectedMeal.meal_substitutions_with_nutrition && (
-            <ul className={styles.foodList}>
-              {selectedMeal.meal_substitutions_with_nutrition[(selectedMealOptions[selectedMeal.id] || 0) - 1]?.items.map((item, idx) => {
-                // For substitution items, quantity contains the value in the selected unit
-                // If unit_type is not 'gramas'/'ml', treat quantity as units count
-                const unitType = item.unit_type || 'gramas';
-                const qtyValue = parseBrazilianNumber(item.quantity);
-
-                let quantityDisplay: string;
-                if (unitType === 'gramas') {
-                  quantityDisplay = `${qtyValue}g`;
-                } else if (unitType === 'ml') {
-                  quantityDisplay = `${qtyValue}ml`;
-                } else {
-                  // For units (unidade, fatia, colher, etc.), quantity is the count
-                  // Show as "2 unidades" without grams since we don't have accurate gram conversion
-                  const unitsCount = item.quantity_units ?? qtyValue;
-                  const unitInfo = UNIT_TYPES[unitType] || { singular: unitType, plural: unitType };
-                  const label = unitsCount === 1 ? unitInfo.singular : unitInfo.plural;
-                  quantityDisplay = `${unitsCount} ${label}`;
-                }
-
-                return (
-                  <li key={idx} className={styles.foodItemWrapper}>
-                    <div className={styles.foodItem}>
-                      <span className={styles.foodBullet} />
-                      <div className={styles.foodInfo}>
-                        <span className={styles.foodName}>
-                          {item.display_name || formatFoodName(item.food_name)}
-                        </span>
-                        <span className={styles.foodDetails}>
-                          {quantityDisplay}
-                          {item.calories !== undefined && item.calories > 0 && (
-                            <> • {Math.round(item.calories)} kcal</>
-                          )}
-                        </span>
-                      </div>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-
-          <Button fullWidth onClick={handleCloseMeal}>
-            Fechar
-          </Button>
-        </div>
-      </Modal>
+        meals={meals}
+        initialMealIndex={selectedMealIndex}
+        completedMeals={completedMeals}
+        onToggleMeal={toggleMeal}
+        substitutions={substitutions}
+        equivalenceGroups={equivalenceGroups}
+        selectedMealOptions={selectedMealOptions}
+        onSetMealOption={(mealId, idx) => setSelectedMealOptions(prev => ({ ...prev, [mealId]: idx }))}
+      />
 
       {/* Modal Adicionar Refeição Extra */}
       <AddExtraMealModal

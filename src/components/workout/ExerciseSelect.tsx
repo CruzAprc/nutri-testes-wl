@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, type KeyboardEvent } from 'react';
 import { Search, X, Play, ExternalLink } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import type { ExerciseLibrary } from '../../types/database';
+import { normalizeText } from '../../utils/parsers';
 import styles from './ExerciseSelect.module.css';
 
 // Helper para extrair thumbnail do YouTube
@@ -26,15 +27,6 @@ export function getYouTubeThumbnail(url: string): string {
 // Verifica se é URL do YouTube
 function isYouTubeUrl(url: string): boolean {
   return url.includes('youtube.com') || url.includes('youtu.be');
-}
-
-// Normaliza texto removendo acentos e convertendo para minúsculas
-function normalizeText(text: string): string {
-  return text
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .trim();
 }
 
 interface ExerciseSelectProps {

@@ -4,29 +4,8 @@ import { supabase } from '../../lib/supabase';
 import type { TabelaTacoWithMetadata } from '../../types/database';
 import { getDisplayName, hasUnitSupport } from '../../utils/foodUnits';
 import { UNIT_TYPES } from '../../constants/foodUnits';
+import { parseBrazilianNumber, normalizeText } from '../../utils/parsers';
 import styles from './FoodSelect.module.css';
-
-// Helper para converter números no formato brasileiro (vírgula como decimal)
-export function parseBrazilianNumber(value: string | number | null | undefined): number {
-  if (typeof value === 'number') return value;
-  if (!value) return 0;
-
-  // Substitui vírgula por ponto e faz o parse
-  const normalized = value.toString().replace(',', '.');
-  const parsed = parseFloat(normalized);
-
-  return isNaN(parsed) ? 0 : parsed;
-}
-
-// Normaliza texto removendo acentos e convertendo para minúsculas
-function normalizeText(text: string): string {
-  return text
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '') // Remove acentos
-    .replace(/,/g, ' ') // Substitui vírgulas por espaços
-    .trim();
-}
 
 interface FoodSelectProps {
   value: string;

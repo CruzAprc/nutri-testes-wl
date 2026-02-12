@@ -4,19 +4,11 @@ import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { usePageData } from '../../hooks';
 import { PageContainer, Header, BottomNav } from '../../components/layout';
-import { Card, Checkbox, YouTubeEmbed, TechniqueBadge } from '../../components/ui';
+import { Card, Checkbox, YouTubeEmbed } from '../../components/ui';
+import { TechniqueBadge } from '../../components/workout/TechniqueBadge';
 import type { DailyWorkout, Exercise } from '../../types/database';
+import { getBrasiliaDate } from '../../utils/date';
 import styles from './Workout.module.css';
-
-// Retorna a data atual no fuso horário de Brasília
-function getBrasiliaDate(): string {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/Sao_Paulo',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit'
-  }).format(new Date());
-}
 
 // Dias da semana
 const WEEKDAYS = [

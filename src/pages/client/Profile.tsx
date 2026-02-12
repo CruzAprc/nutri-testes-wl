@@ -7,17 +7,8 @@ import { supabase } from '../../lib/supabase';
 import { PageContainer, Header, BottomNav } from '../../components/layout';
 import { Card, Button } from '../../components/ui';
 import type { WeightHistory } from '../../types/database';
+import { getBrasiliaDate } from '../../utils/date';
 import styles from './Profile.module.css';
-
-// Retorna a data atual no fuso horário de Brasília
-function getBrasiliaDate(): string {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/Sao_Paulo',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit'
-  }).format(new Date());
-}
 
 export function Profile() {
   const navigate = useNavigate();
