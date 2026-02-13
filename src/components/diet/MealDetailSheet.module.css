@@ -4,7 +4,7 @@
 .overlay {
   position: fixed;
   inset: 0;
-  z-index: 100;
+  z-index: 1000;
   background: rgba(0, 0, 0, 0.5);
   animation: fadeIn 0.3s ease;
 }
@@ -22,7 +22,7 @@
   bottom: 0;
   left: 0;
   right: 0;
-  z-index: 101;
+  z-index: 1001;
   height: 85vh;
   background: #ffffff;
   border-radius: 24px 24px 0 0;
@@ -106,62 +106,6 @@
   flex: 1;
   text-align: center;
   padding-right: 36px; /* compensate for back button to center title */
-}
-
-/* ==========================================
-   TABS (horizontal scroll)
-   ========================================== */
-.tabs {
-  padding: 0 16px 14px;
-  flex-shrink: 0;
-}
-
-.tabsScroll {
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  scroll-snap-type: x mandatory;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-  padding: 2px 0;
-}
-
-.tabsScroll::-webkit-scrollbar {
-  display: none;
-}
-
-.tab {
-  flex-shrink: 0;
-  padding: 8px 18px;
-  font-size: 13px;
-  font-weight: 600;
-  color: #374151;
-  background: #ffffff;
-  border: 1px solid #d1d5db;
-  border-radius: 20px;
-  cursor: pointer;
-  transition: all 0.2s;
-  scroll-snap-align: center;
-  white-space: nowrap;
-}
-
-.tab:hover {
-  border-color: #1a237e;
-  color: #1a237e;
-  background: #f5f5ff;
-}
-
-.tabActive {
-  background: #1a237e;
-  border-color: #1a237e;
-  color: #ffffff;
-}
-
-.tabActive:hover {
-  background: #1a237e;
-  border-color: #1a237e;
-  color: #ffffff;
 }
 
 /* ==========================================
@@ -255,17 +199,14 @@
   margin: 0;
 }
 
-.summaryIcon {
+.summaryImage {
   width: 70px;
   height: 70px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.85);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  object-fit: cover;
   flex-shrink: 0;
-  font-size: 32px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  border: 3px solid rgba(255, 255, 255, 0.85);
 }
 
 /* ==========================================

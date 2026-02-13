@@ -5,14 +5,14 @@ export { DEFAULT_APP_SETTINGS } from './app-settings';
 export type { Profile, Anamnesis } from './profile';
 export type { DietPlan, Meal, MealFood, FoodSubstitution, TemplateFoodSubstitution, MealSubstitutionItem, MealSubstitution, FoodEquivalenceGroup, FoodEquivalence } from './diet';
 export type { WorkoutPlan, DailyWorkout, Exercise, ExerciseLibrary } from './workout';
-export type { DailyProgress, WeightHistory, ExerciseLogSet, ExerciseLogRecord } from './progress';
+export type { DailyProgress, WeightHistory, ExerciseLogSet, ExerciseLogRecord, ProgressPhoto } from './progress';
 export type { TabelaTaco, FoodMetadata, TabelaTacoWithMetadata, ExtraMeal, ExtraMealFood, ExtraMealWithFoods } from './food';
 export type { PaymentGateway, PaymentMethod, PaymentStatus, AsaasEnvironment, PaymentSettings, SubscriptionPlan, Payment, PaymentWithPlan } from './payment';
 
 import type { Profile, Anamnesis } from './profile';
 import type { DietPlan, Meal, MealFood, FoodSubstitution } from './diet';
 import type { WorkoutPlan, DailyWorkout, Exercise, ExerciseLibrary } from './workout';
-import type { DailyProgress, WeightHistory, ExerciseLogRecord } from './progress';
+import type { DailyProgress, WeightHistory, ExerciseLogRecord, ProgressPhoto } from './progress';
 import type { TabelaTaco, FoodMetadata, ExtraMeal, ExtraMealFood } from './food';
 import type { PaymentSettings, SubscriptionPlan, Payment } from './payment';
 
@@ -103,6 +103,11 @@ export interface Database {
         Row: ExerciseLogRecord;
         Insert: Omit<ExerciseLogRecord, 'id' | 'created_at'>;
         Update: Partial<Omit<ExerciseLogRecord, 'id'>>;
+      };
+      progress_photos: {
+        Row: ProgressPhoto;
+        Insert: Omit<ProgressPhoto, 'id' | 'created_at'>;
+        Update: Partial<Omit<ProgressPhoto, 'id'>>;
       };
       payment_settings: {
         Row: PaymentSettings;

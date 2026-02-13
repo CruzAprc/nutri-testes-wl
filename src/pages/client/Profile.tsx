@@ -1,12 +1,12 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, Scale, Ruler, Target, Calendar, Edit3, Check, X, TrendingDown, TrendingUp, Camera, Loader2 } from 'lucide-react';
+import { LogOut, Scale, Ruler, Target, Calendar, Pencil, Check, X, TrendingDown, TrendingUp, Camera, Loader2, ImagePlus } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { supabase } from '../../lib/supabase';
 import { PageContainer, Header, BottomNav } from '../../components/layout';
-import { Card, Button } from '../../components/ui';
-import type { WeightHistory } from '../../types/database';
+import { Card, Button, BeforeAfterSlider } from '../../components/ui';
+import type { WeightHistory, ProgressPhoto } from '../../types/database';
 import { getBrasiliaDate } from '../../utils/date';
 import styles from './Profile.module.css';
 
@@ -21,15 +21,38 @@ export function Profile() {
   const [savingWeight, setSavingWeight] = useState(false);
   const [weightSaved, setWeightSaved] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [progressPhotos, setProgressPhotos] = useState<ProgressPhoto[]>([]);
+  const [uploadingProgress, setUploadingProgress] = useState(false);
+  const [beforeDateIdx, setBeforeDateIdx] = useState(0);
+  const [afterDateIdx, setAfterDateIdx] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const progressFileInputRef = useRef<HTMLInputElement>(null);
 
   const logoUrl = settings?.logo_icon_url || settings?.logo_main_url || '/logo-icon.png';
+
+  const fetchProgressPhotos = useCallback(async () => {
+    if (!profile?.id) return;
+    const { data } = await supabase
+      .from('progress_photos')
+      .select('*')
+      .eq('client_id', profile.id)
+      .order('taken_at', { ascending: true });
+
+    if (data) {
+      setProgressPhotos(data);
+      if (data.length >= 2) {
+        setBeforeDateIdx(0);
+        setAfterDateIdx(data.length - 1);
+      }
+    }
+  }, [profile?.id]);
 
   useEffect(() => {
     if (profile?.id) {
       fetchWeightHistory();
+      fetchProgressPhotos();
     }
-  }, [profile?.id]);
+  }, [profile?.id, fetchProgressPhotos]);
 
   async function fetchWeightHistory() {
     const { data } = await supabase
@@ -202,6 +225,71 @@ export function Profile() {
     }
   }
 
+  async function handleProgressPhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !profile?.id) return;
+
+    if (!file.type.startsWith('image/')) {
+      alert('Por favor, selecione uma imagem válida.');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      alert('A imagem deve ter no máximo 5MB.');
+      return;
+    }
+
+    setUploadingProgress(true);
+    try {
+      const today = getBrasiliaDate();
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${profile.id}/${today}/front-${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('progress-photos')
+        .upload(fileName, file, { cacheControl: '3600', upsert: true });
+
+      if (uploadError) {
+        console.error('Upload error:', uploadError);
+        alert('Erro ao fazer upload. Tente novamente.');
+        return;
+      }
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('progress-photos')
+        .getPublicUrl(fileName);
+
+      const { error: insertError } = await supabase
+        .from('progress_photos')
+        .insert({
+          client_id: profile.id,
+          photo_url: publicUrl,
+          photo_type: 'front' as const,
+          taken_at: today,
+        });
+
+      if (insertError) {
+        console.error('Insert error:', insertError);
+        alert('Erro ao salvar referência da foto.');
+        return;
+      }
+
+      await fetchProgressPhotos();
+    } catch (error) {
+      console.error('Error uploading progress photo:', error);
+      alert('Erro ao fazer upload. Tente novamente.');
+    } finally {
+      setUploadingProgress(false);
+      if (progressFileInputRef.current) {
+        progressFileInputRef.current.value = '';
+      }
+    }
+  }
+
+  // Unique dates for progress photo selector
+  const progressDates = [...new Set(progressPhotos.map(p => p.taken_at))];
+  const formatProgressDate = (dateStr: string) =>
+    new Date(dateStr + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
+
   const currentWeight = profile?.current_weight_kg || 0;
   const startingWeight = profile?.starting_weight_kg || currentWeight;
   const goalWeight = profile?.goal_weight_kg || 0;
@@ -268,71 +356,72 @@ export function Profile() {
           <h2 className={styles.sectionTitle}>Peso</h2>
 
           <Card className={styles.weightCard}>
-            <div className={styles.currentWeightSection}>
-              <span className={styles.weightLabel}>Peso Atual</span>
+            <button
+              onClick={startEditingWeight}
+              className={styles.weightEditIcon}
+              aria-label="Editar peso"
+            >
+              <Pencil size={18} />
+            </button>
 
-              {isEditingWeight ? (
-                <div className={styles.weightEditRow}>
-                  <div className={styles.weightInputWrapper}>
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={newWeight}
-                      onChange={(e) => setNewWeight(e.target.value)}
-                      className={styles.weightInput}
-                      placeholder="kg"
-                      autoFocus
-                    />
-                    <span className={styles.weightInputUnit}>kg</span>
-                  </div>
-                  <div className={styles.weightEditButtons}>
-                    <button
-                      onClick={handleSaveWeight}
-                      disabled={savingWeight}
-                      className={styles.weightSaveBtn}
-                    >
-                      {savingWeight ? '...' : <Check size={18} />}
-                    </button>
-                    <button
-                      onClick={cancelEditingWeight}
-                      className={styles.weightCancelBtn}
-                    >
-                      <X size={18} />
-                    </button>
-                  </div>
+            <span className={styles.weightLabel}>Peso Atual</span>
+
+            {isEditingWeight ? (
+              <div className={styles.weightEditRow}>
+                <div className={styles.weightInputWrapper}>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={newWeight}
+                    onChange={(e) => setNewWeight(e.target.value)}
+                    className={styles.weightInput}
+                    placeholder="0.0"
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleSaveWeight();
+                      if (e.key === 'Escape') cancelEditingWeight();
+                    }}
+                  />
+                  <span className={styles.weightInputUnit}>kg</span>
                 </div>
-              ) : (
-                <div className={styles.weightDisplayRow}>
-                  <div className={styles.weightValue}>
-                    <span className={styles.weightNumber}>{currentWeight.toFixed(1)}</span>
-                    <span className={styles.weightUnit}>kg</span>
-                  </div>
-                  <button onClick={startEditingWeight} className={styles.updateWeightBtn}>
-                    <Edit3 size={16} />
-                    Atualizar
+                <div className={styles.weightEditButtons}>
+                  <button
+                    onClick={handleSaveWeight}
+                    disabled={savingWeight}
+                    className={styles.weightSaveBtn}
+                  >
+                    {savingWeight ? '...' : <Check size={18} />}
+                  </button>
+                  <button
+                    onClick={cancelEditingWeight}
+                    className={styles.weightCancelBtn}
+                  >
+                    <X size={18} />
                   </button>
                 </div>
-              )}
-
-              {weightSaved && (
-                <p className={styles.weightSavedMsg}>Peso atualizado!</p>
-              )}
-            </div>
-
-            {/* Weight Stats Grid */}
-            <div className={styles.weightStatsGrid}>
-              <div className={styles.weightStatBox}>
-                <span className={styles.weightStatLabel}>Peso Inicial</span>
-                <span className={styles.weightStatValue}>
-                  {startingWeight > 0 ? `${startingWeight.toFixed(1)} kg` : '--'}
-                </span>
               </div>
-              <div className={styles.weightStatBox}>
-                <span className={styles.weightStatLabel}>Meta</span>
-                <span className={styles.weightStatValue}>
-                  {goalWeight > 0 ? `${goalWeight.toFixed(1)} kg` : '--'}
-                </span>
+            ) : (
+              <div className={styles.weightDisplayRow}>
+                <div className={styles.weightValue}>
+                  <span className={styles.weightNumber}>{currentWeight.toFixed(1)}</span>
+                  <span className={styles.weightUnit}>kg</span>
+                </div>
               </div>
+            )}
+
+            {weightSaved && (
+              <p className={styles.weightSavedMsg}>Peso atualizado!</p>
+            )}
+
+            <div className={styles.weightDivider} />
+
+            <div className={styles.weightStatsRow}>
+              <span className={styles.weightStatInline}>
+                Peso Inicial: {startingWeight > 0 ? `${startingWeight.toFixed(1)}kg` : '--'}
+              </span>
+              <span className={styles.weightStatInline}>
+                Meta: {goalWeight > 0 ? `${goalWeight.toFixed(1)}kg` : '--'}
+              </span>
             </div>
 
             {/* Progress Badges */}
@@ -406,6 +495,93 @@ export function Profile() {
               </div>
             </div>
           </Card>
+        </section>
+
+        {/* Progress Photos Section */}
+        <section className={styles.section}>
+          <h2 className={styles.sectionTitle}>Meu Progresso Visual</h2>
+
+          {progressPhotos.length >= 2 ? (
+            <>
+              <div className={styles.datePills}>
+                <div className={styles.datePill}>
+                  <span className={styles.datePillLabel}>Antes:</span>
+                  <select
+                    className={styles.dateSelect}
+                    value={beforeDateIdx}
+                    onChange={(e) => setBeforeDateIdx(Number(e.target.value))}
+                  >
+                    {progressDates.map((date, i) => (
+                      <option key={date} value={progressPhotos.findIndex(p => p.taken_at === date)}>
+                        {formatProgressDate(date)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className={styles.datePill}>
+                  <span className={styles.datePillLabel}>Depois:</span>
+                  <select
+                    className={styles.dateSelect}
+                    value={afterDateIdx}
+                    onChange={(e) => setAfterDateIdx(Number(e.target.value))}
+                  >
+                    {progressDates.map((date, i) => (
+                      <option key={date} value={progressPhotos.findIndex(p => p.taken_at === date)}>
+                        {formatProgressDate(date)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <BeforeAfterSlider
+                beforeImage={progressPhotos[beforeDateIdx]?.photo_url}
+                afterImage={progressPhotos[afterDateIdx]?.photo_url}
+              />
+            </>
+          ) : progressPhotos.length === 1 ? (
+            <Card className={styles.progressPlaceholder}>
+              <img
+                src={progressPhotos[0].photo_url}
+                alt="Progresso"
+                className={styles.singleProgressPhoto}
+              />
+              <p className={styles.progressPlaceholderText}>
+                Adicione mais uma foto para comparar seu progresso!
+              </p>
+            </Card>
+          ) : (
+            <Card className={styles.progressPlaceholder}>
+              <div className={styles.progressPlaceholderIcon}>
+                <ImagePlus size={40} />
+              </div>
+              <p className={styles.progressPlaceholderTitle}>Acompanhe sua evolução</p>
+              <p className={styles.progressPlaceholderText}>
+                Tire fotos regularmente para ver seu progresso ao longo do tempo
+              </p>
+            </Card>
+          )}
+
+          <button
+            className={styles.addProgressPhotoBtn}
+            onClick={() => progressFileInputRef.current?.click()}
+            disabled={uploadingProgress}
+          >
+            {uploadingProgress ? (
+              <Loader2 size={18} className={styles.spinning} />
+            ) : (
+              <Camera size={18} />
+            )}
+            {uploadingProgress ? 'Enviando...' : 'Adicionar foto'}
+          </button>
+          <input
+            ref={progressFileInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={handleProgressPhotoUpload}
+            className={styles.hiddenInput}
+          />
         </section>
 
         {profile?.goals && (

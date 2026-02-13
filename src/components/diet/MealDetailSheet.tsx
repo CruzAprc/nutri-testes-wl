@@ -3,6 +3,7 @@ import { ArrowLeft, Check, ChevronDown, ChevronUp, RefreshCw, Clock } from 'luci
 import { parseBrazilianNumber } from '../../utils/parsers';
 import { formatFoodName } from '../../utils/formatters';
 import { formatQuantityDisplay } from '../../utils/foodUnits';
+import { getMealImage } from '../../utils/mealImages';
 import { UNIT_TYPES } from '../../constants/foodUnits';
 import type { FoodSubstitution, FoodEquivalenceGroup, FoodEquivalence } from '../../types/database';
 import type { MealWithNutrition, EquivalenceGroupWithFoods } from '../../pages/client/Diet';
@@ -11,8 +12,7 @@ import styles from './MealDetailSheet.module.css';
 interface MealDetailSheetProps {
   isOpen: boolean;
   onClose: () => void;
-  meals: MealWithNutrition[];
-  initialMealIndex: number;
+  meal: MealWithNutrition | null;
   completedMeals: string[];
   onToggleMeal: (mealId: string) => void;
   substitutions: FoodSubstitution[];
@@ -21,21 +21,6 @@ interface MealDetailSheetProps {
   onSetMealOption: (mealId: string, optionIndex: number) => void;
 }
 
-// Meal name to emoji mapping
-function getMealEmoji(mealName: string): string {
-  const name = mealName.toLowerCase();
-  if (name.includes('cafe') || name.includes('café') || name.includes('manha') || name.includes('manhã')) return '☕';
-  if (name.includes('almoco') || name.includes('almoço')) return '🍛';
-  if (name.includes('jantar') || name.includes('janta')) return '🍽️';
-  if (name.includes('lanche') && name.includes('tarde')) return '🥪';
-  if (name.includes('lanche') && name.includes('manha')) return '🍎';
-  if (name.includes('lanche')) return '🥤';
-  if (name.includes('ceia')) return '🌙';
-  if (name.includes('pre') && name.includes('treino')) return '💪';
-  if (name.includes('pos') || name.includes('pós')) return '🥛';
-  if (name.includes('snack')) return '🍿';
-  return '🍽️';
-}
 
 function formatTime(time: string | null): string {
   if (!time) return '';
@@ -45,8 +30,7 @@ function formatTime(time: string | null): string {
 export function MealDetailSheet({
   isOpen,
   onClose,
-  meals,
-  initialMealIndex,
+  meal,
   completedMeals,
   onToggleMeal,
   substitutions,
@@ -54,7 +38,6 @@ export function MealDetailSheet({
   selectedMealOptions,
   onSetMealOption,
 }: MealDetailSheetProps) {
-  const [activeMealIndex, setActiveMealIndex] = useState(initialMealIndex);
   const [dragOffset, setDragOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
@@ -64,30 +47,19 @@ export function MealDetailSheet({
 
   const gestureStartRef = useRef<{ y: number; time: number } | null>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
-  const tabsScrollRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
 
-  const currentMeal = meals[activeMealIndex];
+  const currentMeal = meal;
 
-  // Sync initialMealIndex when it changes (new meal opened)
+  // Reset state when a new meal is opened
   useEffect(() => {
     if (isOpen) {
-      setActiveMealIndex(initialMealIndex);
       setShowAllFoods(false);
       setExpandedFoods(new Set());
       setExpandedEquivalences(new Set());
       setIsClosing(false);
     }
-  }, [isOpen, initialMealIndex]);
-
-  // Scroll active tab into view
-  useEffect(() => {
-    if (!tabsScrollRef.current) return;
-    const activeTab = tabsScrollRef.current.children[activeMealIndex] as HTMLElement | undefined;
-    if (activeTab) {
-      activeTab.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-    }
-  }, [activeMealIndex]);
+  }, [isOpen, meal]);
 
   // Lock body scroll when open
   useEffect(() => {
@@ -277,16 +249,6 @@ export function MealDetailSheet({
     });
   }
 
-  function handleTabChange(index: number) {
-    setActiveMealIndex(index);
-    setShowAllFoods(false);
-    setExpandedFoods(new Set());
-    setExpandedEquivalences(new Set());
-    if (bodyRef.current) {
-      bodyRef.current.scrollTop = 0;
-    }
-  }
-
   if (!isOpen || !currentMeal) return null;
 
   const isCompleted = completedMeals.includes(currentMeal.id);
@@ -350,23 +312,6 @@ export function MealDetailSheet({
           <h2 className={styles.headerTitle}>{currentMeal.name}</h2>
         </div>
 
-        {/* Tabs - only show if more than 1 meal */}
-        {meals.length > 1 && (
-          <div className={styles.tabs}>
-            <div ref={tabsScrollRef} className={styles.tabsScroll}>
-              {meals.map((meal, idx) => (
-                <button
-                  key={meal.id}
-                  className={`${styles.tab} ${idx === activeMealIndex ? styles.tabActive : ''}`}
-                  onClick={() => handleTabChange(idx)}
-                >
-                  {meal.name}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
         {/* Scrollable Body */}
         <div ref={bodyRef} className={styles.body}>
           {/* Meal Options Tabs */}
@@ -398,9 +343,11 @@ export function MealDetailSheet({
                 </p>
               )}
             </div>
-            <div className={styles.summaryIcon}>
-              {getMealEmoji(currentMeal.name)}
-            </div>
+            <img
+              src={getMealImage(currentMeal.name)}
+              alt={currentMeal.name}
+              className={styles.summaryImage}
+            />
           </div>
 
           {/* 5. Food List */}

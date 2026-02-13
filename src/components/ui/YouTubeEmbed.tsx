@@ -5,6 +5,7 @@ import styles from './YouTubeEmbed.module.css';
 interface YouTubeEmbedProps {
   url: string;
   title?: string;
+  hideLabel?: boolean;
 }
 
 type VideoType = 'youtube' | 'drive' | 'other';
@@ -64,7 +65,7 @@ function isValidUrl(url: string): boolean {
   }
 }
 
-export function YouTubeEmbed({ url, title }: YouTubeEmbedProps) {
+export function YouTubeEmbed({ url, title, hideLabel }: YouTubeEmbedProps) {
   const [showVideo, setShowVideo] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -124,7 +125,7 @@ export function YouTubeEmbed({ url, title }: YouTubeEmbedProps) {
             <Play size={24} fill="currentColor" />
           </div>
         </div>
-        <span className={styles.label}>{videoType === 'drive' ? 'Ver video' : 'Ver demonstracao'}</span>
+        {!hideLabel && <span className={styles.label}>{videoType === 'drive' ? 'Ver video' : 'Ver demonstracao'}</span>}
       </div>
 
       {/* Video Modal */}

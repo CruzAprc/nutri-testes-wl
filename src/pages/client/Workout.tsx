@@ -8,6 +8,8 @@ import { Card, Checkbox, YouTubeEmbed } from '../../components/ui';
 import { TechniqueBadge } from '../../components/workout/TechniqueBadge';
 import type { DailyWorkout, Exercise } from '../../types/database';
 import { getBrasiliaDate } from '../../utils/date';
+import { getExerciseImage } from '../../utils/exerciseImages';
+import { getWorkoutGif } from '../../utils/workoutGifs';
 import styles from './Workout.module.css';
 
 // Dias da semana
@@ -478,7 +480,11 @@ export function Workout() {
           <>
             <Card className={styles.workoutInfo}>
               <div className={styles.workoutIcon}>
-                <span>💪</span>
+                <img
+                  src={getWorkoutGif(workout.workout_type)}
+                  alt={workout.workout_type || 'Treino'}
+                  className={styles.workoutGif}
+                />
               </div>
               <div className={styles.workoutDetails}>
                 <h2 className={styles.workoutTitle}>Treino de {selectedWeekday.full}</h2>
@@ -525,14 +531,15 @@ export function Workout() {
                         <YouTubeEmbed
                           url={exercise.video_url}
                           title={exercise.name}
+                          hideLabel
                         />
                       ) : (
-                        <button
-                          className={styles.expandButton}
-                          onClick={() => toggleExpand(exercise.id)}
-                        >
-                          {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-                        </button>
+                        <div className={styles.exerciseThumb} onClick={() => toggleExpand(exercise.id)}>
+                          <img src={getExerciseImage(exercise.name)} alt={exercise.name} />
+                          <button className={styles.expandButton}>
+                            {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                          </button>
+                        </div>
                       )}
                     </div>
 
@@ -567,7 +574,7 @@ export function Workout() {
                         ))}
 
                         <div className={styles.logActions}>
-                          <div className={styles.setButtons}>
+                          <div className={styles.logActionsTop}>
                             <button
                               className={styles.setBtn}
                               onClick={() => removeSet(exercise.id)}
@@ -596,7 +603,7 @@ export function Workout() {
                                 Salvo
                               </>
                             ) : (
-                              'Salvar'
+                              'Finalizar exercício'
                             )}
                           </button>
                         </div>

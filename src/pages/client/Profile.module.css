@@ -223,35 +223,53 @@
 /* Weight Card Styles */
 .weightCard {
   padding: 20px;
+  border-radius: 16px;
+  position: relative;
 }
 
-.currentWeightSection {
-  margin-bottom: 20px;
+.weightEditIcon {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #e8eaf6;
+  color: #1a237e;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.weightEditIcon:hover {
+  background: #c5cae9;
 }
 
 .weightLabel {
   display: block;
-  font-size: 14px;
+  font-size: 13px;
   color: var(--text-muted);
-  margin-bottom: 8px;
+  margin-bottom: 4px;
 }
 
 .weightDisplayRow {
   display: flex;
   align-items: center;
-  justify-content: space-between;
 }
 
 .weightValue {
   display: flex;
   align-items: baseline;
-  gap: 4px;
+  gap: 6px;
 }
 
 .weightNumber {
-  font-size: 36px;
-  font-weight: 700;
-  color: var(--primary);
+  font-size: 40px;
+  font-weight: 800;
+  color: #1a237e;
   line-height: 1;
 }
 
@@ -259,31 +277,6 @@
   font-size: 18px;
   font-weight: 500;
   color: var(--text-muted);
-}
-
-.updateWeightBtn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 10px 16px;
-  border-radius: var(--radius-full);
-  background: linear-gradient(135deg, var(--accent) 0%, var(--primary) 100%);
-  color: white;
-  font-weight: 600;
-  font-size: 14px;
-  border: none;
-  cursor: pointer;
-  transition: all 0.2s;
-  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
-}
-
-.updateWeightBtn:hover {
-  transform: scale(1.02);
-  box-shadow: 0 6px 16px rgba(139, 92, 246, 0.4);
-}
-
-.updateWeightBtn:active {
-  transform: scale(0.98);
 }
 
 /* Edit Mode */
@@ -295,27 +288,27 @@
 
 .weightInputWrapper {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  align-items: baseline;
+  gap: 6px;
   flex: 1;
 }
 
 .weightInput {
-  width: 100px;
-  padding: 12px 16px;
-  border-radius: var(--radius-md);
-  border: 2px solid var(--primary);
-  background: var(--bg-card);
-  color: var(--text-primary);
-  font-size: 20px;
-  font-weight: 600;
-  text-align: center;
+  width: 140px;
+  padding: 0 0 4px;
+  border: none;
+  border-bottom: 2px solid #1a237e;
+  background: transparent;
+  color: #1a237e;
+  font-size: 40px;
+  font-weight: 800;
+  text-align: left;
   transition: border-color 0.2s;
 }
 
 .weightInput:focus {
   outline: none;
-  border-color: var(--accent);
+  border-bottom-color: #3949ab;
 }
 
 .weightInput::-webkit-outer-spin-button,
@@ -329,7 +322,7 @@
 }
 
 .weightInputUnit {
-  font-size: 16px;
+  font-size: 18px;
   color: var(--text-muted);
 }
 
@@ -339,10 +332,10 @@
 }
 
 .weightSaveBtn {
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  background: #10b981;
   color: white;
   border: none;
   cursor: pointer;
@@ -350,12 +343,10 @@
   align-items: center;
   justify-content: center;
   transition: all 0.2s;
-  box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
 }
 
 .weightSaveBtn:hover:not(:disabled) {
-  transform: scale(1.05);
-  box-shadow: 0 6px 16px rgba(34, 197, 94, 0.4);
+  background: #059669;
 }
 
 .weightSaveBtn:disabled {
@@ -364,8 +355,8 @@
 }
 
 .weightCancelBtn {
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   background: var(--bg-secondary);
   color: var(--text-secondary);
@@ -384,40 +375,29 @@
 
 .weightSavedMsg {
   font-size: 14px;
-  color: #22c55e;
+  color: #10b981;
   margin: 8px 0 0;
   display: flex;
   align-items: center;
   gap: 4px;
 }
 
-/* Weight Stats Grid */
-.weightStatsGrid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
+/* Weight Divider + Stats Row */
+.weightDivider {
+  height: 1px;
+  background: #f0f0f0;
+  margin: 16px 0 12px;
+}
+
+.weightStatsRow {
+  display: flex;
+  justify-content: space-between;
   margin-bottom: 16px;
-  padding-top: 16px;
-  border-top: 1px solid var(--border-light);
 }
 
-.weightStatBox {
-  background: var(--bg-secondary);
-  border-radius: var(--radius-md);
-  padding: 12px 16px;
-}
-
-.weightStatLabel {
-  display: block;
-  font-size: 12px;
-  color: var(--text-muted);
-  margin-bottom: 4px;
-}
-
-.weightStatValue {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--text-primary);
+.weightStatInline {
+  font-size: 14px;
+  color: var(--text-secondary);
 }
 
 /* Progress Badges */
@@ -472,4 +452,115 @@
 
 .historyTrend.trendUp {
   color: #ef4444;
+}
+
+/* Progress Photos Section */
+.datePills {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.datePill {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+}
+
+.datePillLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.dateSelect {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0;
+}
+
+.dateSelect:focus {
+  outline: none;
+}
+
+.addProgressPhotoBtn {
+  width: 100%;
+  height: 48px;
+  border-radius: 12px;
+  background: #1a237e;
+  color: white;
+  font-weight: 700;
+  font-size: 15px;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 12px;
+  transition: opacity 0.2s;
+}
+
+.addProgressPhotoBtn:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.addProgressPhotoBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.progressPlaceholder {
+  padding: 40px 20px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.progressPlaceholderIcon {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: #e8eaf6;
+  color: #1a237e;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+
+.progressPlaceholderTitle {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.progressPlaceholderText {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.singleProgressPhoto {
+  width: 100%;
+  max-width: 200px;
+  border-radius: 12px;
+  object-fit: cover;
+  aspect-ratio: 3 / 4;
+  margin-bottom: 12px;
 }

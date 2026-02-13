@@ -6,3 +6,4 @@ export { Card } from './Card';
 export { Modal } from './Modal';
 export { ProgressBar } from './ProgressBar';
 export { YouTubeEmbed } from './YouTubeEmbed';
+export { BeforeAfterSlider } from './BeforeAfterSlider';

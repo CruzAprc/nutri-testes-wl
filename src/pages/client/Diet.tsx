@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { Clock, ChevronRight, Plus, Trash2 } from 'lucide-react';
+import { getMealImage } from '../../utils/mealImages';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { usePageData } from '../../hooks';
@@ -87,7 +88,6 @@ export function Diet() {
   const [meals, setMeals] = useState<MealWithNutrition[]>([]);
   const [completedMeals, setCompletedMeals] = useState<string[]>([]);
   const [selectedMeal, setSelectedMeal] = useState<MealWithNutrition | null>(null);
-  const [selectedMealIndex, setSelectedMealIndex] = useState(0);
   const [substitutions, setSubstitutions] = useState<FoodSubstitution[]>([]);
   const [currentDate, setCurrentDate] = useState(getBrasiliaDate());
   const currentDateRef = useRef(currentDate);
@@ -896,8 +896,6 @@ export function Diet() {
   }
 
   function handleOpenMeal(meal: MealWithNutrition) {
-    const idx = meals.findIndex((m) => m.id === meal.id);
-    setSelectedMealIndex(idx >= 0 ? idx : 0);
     setSelectedMeal(meal);
   }
 
@@ -988,6 +986,11 @@ export function Diet() {
                     checked={isCompleted}
                     stopPropagation
                     onChange={() => toggleMeal(meal.id)}
+                  />
+                  <img
+                    src={getMealImage(meal.name)}
+                    alt={meal.name}
+                    className={styles.mealImage}
                   />
                   <div className={styles.mealContent}>
                     <h3 className={`${styles.mealName} ${isCompleted ? styles.completed : ''}`}>
@@ -1086,8 +1089,7 @@ export function Diet() {
       <MealDetailSheet
         isOpen={!!selectedMeal}
         onClose={handleCloseMeal}
-        meals={meals}
-        initialMealIndex={selectedMealIndex}
+        meal={selectedMeal}
         completedMeals={completedMeals}
         onToggleMeal={toggleMeal}
         substitutions={substitutions}

@@ -21,6 +21,15 @@ export interface ExerciseLogSet {
   reps: number;
 }
 
+export interface ProgressPhoto {
+  id: string;
+  client_id: string;
+  photo_url: string;
+  photo_type: 'front' | 'side' | 'back';
+  taken_at: string;
+  created_at: string;
+}
+
 export interface ExerciseLogRecord {
   id: string;
   client_id: string;
