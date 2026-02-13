@@ -101,21 +101,41 @@ export function Diet() {
   const [availableDiets, setAvailableDiets] = useState<DietPlan[]>([]);
   const [selectedDietId, setSelectedDietId] = useState<string | null>(getStoredDietId());
 
-  console.log('[Diet] render - profile?.id:', profile?.id, 'meals.length:', meals.length);
-
-  // Log de mount/unmount do componente
+  // Carregar dados do cache para exibição instantânea (elimina flash)
   useEffect(() => {
-    console.log('[Diet] ===== COMPONENT MOUNTED =====');
-    return () => {
-      console.log('[Diet] ===== COMPONENT UNMOUNTED =====');
-    };
-  }, []);
+    if (!profile?.id) return;
+    try {
+      const cached = localStorage.getItem(`diet_cache_${profile.id}`);
+      if (cached) {
+        const data = JSON.parse(cached);
+        if (data.meals?.length > 0) setMeals(data.meals);
+        if (data.substitutions) setSubstitutions(data.substitutions);
+        if (data.availableDiets) setAvailableDiets(data.availableDiets);
+        if (data.equivalenceGroups) setEquivalenceGroups(data.equivalenceGroups);
+      }
+    } catch {
+      // Cache inválido, ignorar
+    }
+  }, [profile?.id]);
+
+  // Salvar cache quando dados mudam
+  useEffect(() => {
+    if (!profile?.id || meals.length === 0) return;
+    try {
+      localStorage.setItem(`diet_cache_${profile.id}`, JSON.stringify({
+        meals,
+        substitutions,
+        availableDiets,
+        equivalenceGroups,
+      }));
+    } catch {
+      // Ignore localStorage errors
+    }
+  }, [meals, substitutions, availableDiets, equivalenceGroups, profile?.id]);
 
   // Callback para buscar todos os dados
   const fetchAllData = useCallback(async () => {
-    console.log('[Diet] fetchAllData called - profile?.id:', profile?.id);
     await Promise.all([fetchDiet(), fetchProgress(), fetchEquivalences(), fetchExtraMeals()]);
-    console.log('[Diet] fetchAllData DONE');
   }, [profile?.id]);
 
   // Hook que gerencia loading e refetch automático
@@ -242,7 +262,6 @@ export function Diet() {
         id: insertedMeal.id,
       };
       setExtraMeals([...extraMeals, newMeal]);
-      console.log('[Diet] Extra meal saved successfully:', insertedMeal.id);
     } catch (error) {
       console.error('[Diet] Error saving extra meal:', error);
     }
@@ -264,15 +283,12 @@ export function Diet() {
 
       // Atualizar estado local
       setExtraMeals(extraMeals.filter((m) => m.id !== id));
-      console.log('[Diet] Extra meal deleted successfully:', id);
     } catch (error) {
       console.error('[Diet] Error removing extra meal:', error);
     }
   };
 
   async function fetchDiet() {
-    console.log('[Diet] fetchDiet started - profile?.id:', profile?.id);
-
     // 1. First, fetch all available diets for this client
     const { data: dietsData } = await supabase
       .from('diet_plans')
@@ -282,7 +298,6 @@ export function Diet() {
       .order('created_at', { ascending: true });
 
     if (!dietsData || dietsData.length === 0) {
-      console.log('[Diet] fetchDiet - NO diets found, returning');
       setAvailableDiets([]);
       setMeals([]);
       return;
@@ -338,10 +353,7 @@ export function Diet() {
       .eq('id', dietToLoad.id)
       .single();
 
-    console.log('[Diet] fetchDiet - supabase query returned, dietPlanData:', !!dietPlanData);
-
     if (!dietPlanData) {
-      console.log('[Diet] fetchDiet - NO dietPlanData, returning');
       return;
     }
 
@@ -502,14 +514,11 @@ export function Diet() {
         };
       });
 
-    console.log('[Diet] fetchDiet - setting meals, count:', mealsWithNutrition.length);
     setMeals(mealsWithNutrition);
     setSubstitutions(dietPlanData.food_substitutions || []);
-    console.log('[Diet] fetchDiet COMPLETE');
   }
 
   async function fetchProgress() {
-    console.log('[Diet] fetchProgress started');
     const today = getBrasiliaDate();
 
     const { data } = await supabase
@@ -524,12 +533,9 @@ export function Diet() {
     } else {
       setCompletedMeals([]);
     }
-    console.log('[Diet] fetchProgress COMPLETE');
   }
 
   async function fetchEquivalences() {
-    console.log('[Diet] fetchEquivalences started');
-
     // Buscar grupos de equivalencia com seus alimentos
     const { data: groups, error: groupsError } = await supabase
       .from('food_equivalence_groups')
@@ -542,7 +548,6 @@ export function Diet() {
     }
 
     if (!groups || groups.length === 0) {
-      console.log('[Diet] No equivalence groups found');
       setEquivalenceGroups([]);
       return;
     }
@@ -565,12 +570,10 @@ export function Diet() {
     }));
 
     setEquivalenceGroups(groupsWithFoods);
-    console.log('[Diet] fetchEquivalences COMPLETE - groups:', groupsWithFoods.length);
   }
 
   // Buscar refeições extras do banco de dados
   async function fetchExtraMeals() {
-    console.log('[Diet] fetchExtraMeals started');
     const today = getBrasiliaDate();
 
     try {
@@ -605,7 +608,6 @@ export function Diet() {
       }
 
       if (!extraMealsData || extraMealsData.length === 0) {
-        console.log('[Diet] No extra meals found for today');
         setExtraMeals([]);
         return;
       }
@@ -640,7 +642,6 @@ export function Diet() {
       });
 
       setExtraMeals(formattedExtraMeals);
-      console.log('[Diet] fetchExtraMeals COMPLETE - count:', formattedExtraMeals.length);
     } catch (error) {
       console.error('[Diet] Error in fetchExtraMeals:', error);
     }
@@ -919,8 +920,6 @@ export function Diet() {
     </div>
   );
 
-  console.log('[Diet] RENDERING - loading:', loading, 'meals.length:', meals.length);
-
   // Get current diet name for display
   const currentDietName = availableDiets.find(d => d.id === selectedDietId)?.name || 'Dieta';
 
@@ -930,7 +929,7 @@ export function Diet() {
 
       <main className={styles.content}>
         {/* Diet Selector - only show if more than one diet available */}
-        {!loading && availableDiets.length > 1 && (
+        {availableDiets.length > 1 && (
           <div className={styles.dietSelector}>
             <label className={styles.dietSelectorLabel}>Dieta ativa:</label>
             <select
@@ -948,19 +947,19 @@ export function Diet() {
         )}
 
         {/* Show diet name if only one diet */}
-        {!loading && availableDiets.length === 1 && (
+        {availableDiets.length === 1 && (
           <div className={styles.singleDietName}>{currentDietName}</div>
         )}
 
         {/* Barra de Macros do Dia */}
-        {!loading && meals.length > 0 && (
+        {meals.length > 0 && (
           <DailyMacrosSummary
             totalPlanned={totalPlannedMacros}
             consumed={consumedMacros}
           />
         )}
 
-        {loading ? (
+        {loading && meals.length === 0 ? (
           <LoadingSkeleton />
         ) : meals.length > 0 ? (
           <>

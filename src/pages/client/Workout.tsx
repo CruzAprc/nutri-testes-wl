@@ -69,6 +69,36 @@ export function Workout() {
   const currentDateRef = useRef(currentDate);
   const fetchAllDataRef = useRef<(() => Promise<void>) | undefined>(undefined);
 
+  // Carregar dados do cache para exibição instantânea (elimina flash)
+  useEffect(() => {
+    if (!profile?.id) return;
+    try {
+      const cached = localStorage.getItem(`workout_cache_${profile.id}`);
+      if (cached) {
+        const data = JSON.parse(cached);
+        if (data.workoutsByDay) setWorkoutsByDay(data.workoutsByDay);
+        if (data.exercisesByDay) setExercisesByDay(data.exercisesByDay);
+        if (data.logsByDay) setLogsByDay(data.logsByDay);
+      }
+    } catch {
+      // Cache inválido, ignorar
+    }
+  }, [profile?.id]);
+
+  // Salvar cache quando dados mudam
+  useEffect(() => {
+    if (!profile?.id || Object.keys(workoutsByDay).length === 0) return;
+    try {
+      localStorage.setItem(`workout_cache_${profile.id}`, JSON.stringify({
+        workoutsByDay,
+        exercisesByDay,
+        logsByDay,
+      }));
+    } catch {
+      // Ignore localStorage errors
+    }
+  }, [workoutsByDay, exercisesByDay, logsByDay, profile?.id]);
+
   // Dados derivados do dia selecionado (troca INSTANTÂNEA)
   const workout = workoutsByDay[selectedDay] ?? null;
   const exercises = exercisesByDay[selectedDay] ?? [];
@@ -233,7 +263,6 @@ export function Workout() {
     const checkDayChange = () => {
       const newDate = getBrasiliaDate();
       if (newDate !== currentDateRef.current) {
-        console.log('[Workout] Dia mudou:', currentDateRef.current, '->', newDate);
         currentDateRef.current = newDate;
         setCurrentDate(newDate);
         // Refetch para carregar dados do novo dia
@@ -527,7 +556,7 @@ export function Workout() {
       </Header>
 
       <main className={styles.content}>
-        {loading ? (
+        {loading && Object.keys(workoutsByDay).length === 0 ? (
           <div className={styles.skeletonContainer}>
             <div className={styles.skeletonCard}>
               <div className={styles.skeletonIcon} />

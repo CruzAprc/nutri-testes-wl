@@ -60,6 +60,20 @@
   align-items: center;
   gap: 12px;
   cursor: pointer;
+  animation: fadeInUp 0.3s ease forwards;
+  opacity: 0;
+}
+
+.mealCard:nth-child(1) { animation-delay: 0ms; }
+.mealCard:nth-child(2) { animation-delay: 50ms; }
+.mealCard:nth-child(3) { animation-delay: 100ms; }
+.mealCard:nth-child(4) { animation-delay: 150ms; }
+.mealCard:nth-child(5) { animation-delay: 200ms; }
+.mealCard:nth-child(6) { animation-delay: 250ms; }
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .mealImage {
