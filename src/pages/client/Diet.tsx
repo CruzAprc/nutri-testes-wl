@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
+import { useEffect, useLayoutEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { Clock, ChevronRight, Plus, Trash2 } from 'lucide-react';
 import { getMealImage } from '../../utils/mealImages';
 import { useAuth } from '../../contexts/AuthContext';
@@ -101,8 +101,8 @@ export function Diet() {
   const [availableDiets, setAvailableDiets] = useState<DietPlan[]>([]);
   const [selectedDietId, setSelectedDietId] = useState<string | null>(getStoredDietId());
 
-  // Carregar dados do cache para exibição instantânea (elimina flash)
-  useEffect(() => {
+  // Carregar dados do cache ANTES do paint (useLayoutEffect elimina flash)
+  useLayoutEffect(() => {
     if (!profile?.id) return;
     try {
       const cached = localStorage.getItem(`diet_cache_${profile.id}`);

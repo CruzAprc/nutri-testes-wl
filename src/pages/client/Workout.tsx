@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 import { Plus, Minus, Check, ChevronDown, ChevronUp } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
@@ -69,8 +69,8 @@ export function Workout() {
   const currentDateRef = useRef(currentDate);
   const fetchAllDataRef = useRef<(() => Promise<void>) | undefined>(undefined);
 
-  // Carregar dados do cache para exibição instantânea (elimina flash)
-  useEffect(() => {
+  // Carregar dados do cache ANTES do paint (useLayoutEffect elimina flash)
+  useLayoutEffect(() => {
     if (!profile?.id) return;
     try {
       const cached = localStorage.getItem(`workout_cache_${profile.id}`);

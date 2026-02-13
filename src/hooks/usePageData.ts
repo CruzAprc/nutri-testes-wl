@@ -29,33 +29,21 @@ export function usePageData({ userId, fetchData, dependencies = [] }: UsePageDat
   // Função de fetch centralizada com proteção contra múltiplas chamadas
   const doFetch = useCallback(async (isRefetch = false) => {
     const uid = userIdRef.current;
-    if (!uid) {
-      console.log('[usePageData] Sem userId, aguardando...');
-      return;
-    }
+    if (!uid) return;
 
     // Evitar múltiplos fetches simultâneos
-    if (isFetchingRef.current) {
-      console.log('[usePageData] Fetch já em andamento, ignorando...');
-      return;
-    }
+    if (isFetchingRef.current) return;
 
     // Debounce: evitar refetch se o último foi há menos de 500ms
     const now = Date.now();
-    if (isRefetch && now - lastFetchTimeRef.current < 500) {
-      console.log('[usePageData] Debounce ativo, ignorando refetch');
-      return;
-    }
+    if (isRefetch && now - lastFetchTimeRef.current < 500) return;
 
     isFetchingRef.current = true;
     lastFetchTimeRef.current = now;
 
-    console.log(`[usePageData] Iniciando ${isRefetch ? 'refetch' : 'fetch'}...`);
-
     try {
       await fetchDataRef.current();
       if (mountedRef.current) {
-        console.log('[usePageData] Fetch completou com sucesso');
         setIsInitialLoading(false);
       }
     } catch (err) {
@@ -90,8 +78,6 @@ export function usePageData({ userId, fetchData, dependencies = [] }: UsePageDat
       if (document.visibilityState !== 'visible') return;
       if (!userIdRef.current) return;
 
-      console.log('[usePageData] App voltou ao foco - executando refetch');
-
       // Pequeno delay para garantir que a conexão está estabilizada
       setTimeout(() => {
         if (mountedRef.current && userIdRef.current) {
@@ -103,8 +89,6 @@ export function usePageData({ userId, fetchData, dependencies = [] }: UsePageDat
     // Também refetch quando a janela ganha foco (cobre mais casos)
     const onFocus = () => {
       if (!userIdRef.current) return;
-      console.log('[usePageData] Janela ganhou foco - executando refetch');
-
       setTimeout(() => {
         if (mountedRef.current && userIdRef.current) {
           doFetch(true);
