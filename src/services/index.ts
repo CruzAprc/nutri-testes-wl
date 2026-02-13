@@ -48,3 +48,12 @@ export {
   getSubscriptionPlans,
   findCheckoutSlug,
 } from './payment.service';
+
+export {
+  getProgressPhotos,
+  insertProgressPhoto,
+  deleteProgressPhoto,
+  uploadProgressFile,
+  getProgressFileUrl,
+  deleteProgressFile,
+} from './progressPhotos.service';

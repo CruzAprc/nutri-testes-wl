@@ -54,10 +54,13 @@ interface ExerciseLog {
 export function Workout() {
   const { profile } = useAuth();
   const [selectedDay, setSelectedDay] = useState(new Date().getDay());
-  const [workout, setWorkout] = useState<DailyWorkout | null>(null);
-  const [exercises, setExercises] = useState<Exercise[]>([]);
+
+  // Dados pre-fetched indexados por dia da semana
+  const [workoutsByDay, setWorkoutsByDay] = useState<Record<number, DailyWorkout | null>>({});
+  const [exercisesByDay, setExercisesByDay] = useState<Record<number, Exercise[]>>({});
+  const [logsByDay, setLogsByDay] = useState<Record<number, ExerciseLog>>({});
+
   const [completedExercises, setCompletedExercises] = useState<string[]>([]);
-  const [exerciseLogs, setExerciseLogs] = useState<ExerciseLog>({});
   const [savingExercise, setSavingExercise] = useState<string | null>(null);
   const [autoSaving, setAutoSaving] = useState<Set<string>>(new Set());
   const autoSaveTimeouts = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
@@ -66,10 +69,15 @@ export function Workout() {
   const currentDateRef = useRef(currentDate);
   const fetchAllDataRef = useRef<(() => Promise<void>) | undefined>(undefined);
 
-  // Manter ref sincronizado com o estado
+  // Dados derivados do dia selecionado (troca INSTANTÂNEA)
+  const workout = workoutsByDay[selectedDay] ?? null;
+  const exercises = exercisesByDay[selectedDay] ?? [];
+  const exerciseLogs = logsByDay[selectedDay] ?? {};
+
+  // Manter ref sincronizado com logs do dia atual
   useEffect(() => {
-    exerciseLogsRef.current = exerciseLogs;
-  }, [exerciseLogs]);
+    exerciseLogsRef.current = logsByDay[selectedDay] ?? {};
+  }, [logsByDay, selectedDay]);
 
   // Manter ref da data sincronizada
   useEffect(() => {
@@ -104,47 +112,66 @@ export function Workout() {
 
     const workoutPlan = planResult.data?.[0];
     if (!workoutPlan) {
-      setWorkout(null);
-      setExercises([]);
-      setExerciseLogs({});
+      setWorkoutsByDay({});
+      setExercisesByDay({});
+      setLogsByDay({});
       return;
     }
 
-    // Buscar daily workout
-    const { data: dailyWorkout } = await supabase
+    // Buscar TODOS os daily workouts de uma vez (sem filtrar por dia)
+    const { data: allWorkouts } = await supabase
       .from('daily_workouts')
       .select('*')
-      .eq('workout_plan_id', workoutPlan.id)
-      .eq('day_of_week', selectedDay)
-      .maybeSingle();
+      .eq('workout_plan_id', workoutPlan.id);
 
-    if (!dailyWorkout) {
-      setWorkout(null);
-      setExercises([]);
-      setExerciseLogs({});
+    if (!allWorkouts || allWorkouts.length === 0) {
+      setWorkoutsByDay({});
+      setExercisesByDay({});
+      setLogsByDay({});
       return;
     }
 
-    setWorkout(dailyWorkout);
+    // Indexar workouts por dia da semana
+    const wByDay: Record<number, DailyWorkout> = {};
+    for (const w of allWorkouts) {
+      wByDay[w.day_of_week] = w;
+    }
+    setWorkoutsByDay(wByDay);
 
-    // Buscar exercicios
-    const { data: exercisesData } = await supabase
+    // Buscar TODOS os exercícios de todos os workouts de uma vez
+    const workoutIds = allWorkouts.map(w => w.id);
+    const { data: allExercisesData } = await supabase
       .from('exercises')
       .select('*')
-      .eq('daily_workout_id', dailyWorkout.id)
+      .in('daily_workout_id', workoutIds)
       .order('order_index');
 
-    const exercises = exercisesData || [];
-    setExercises(exercises);
+    const allExercises = allExercisesData || [];
 
-    if (exercises.length === 0) {
-      setExerciseLogs({});
+    // Mapear workout_id → day_of_week para indexação
+    const workoutIdToDay: Record<string, number> = {};
+    for (const w of allWorkouts) {
+      workoutIdToDay[w.id] = w.day_of_week;
+    }
+
+    // Indexar exercícios por dia
+    const exByDay: Record<number, Exercise[]> = {};
+    for (const ex of allExercises) {
+      const day = workoutIdToDay[ex.daily_workout_id];
+      if (day !== undefined) {
+        if (!exByDay[day]) exByDay[day] = [];
+        exByDay[day].push(ex);
+      }
+    }
+    setExercisesByDay(exByDay);
+
+    if (allExercises.length === 0) {
+      setLogsByDay({});
       return;
     }
 
-    // Buscar logs mais recentes de cada exercício (sem filtrar por data)
-    // Ordenado por data DESC para pegar o mais recente primeiro
-    const exerciseIds = exercises.map(e => e.id);
+    // Buscar TODOS os exercise_logs de todos os exercícios de uma vez
+    const exerciseIds = allExercises.map(e => e.id);
     const { data: allLogs } = await supabase
       .from('exercise_logs')
       .select('*')
@@ -154,40 +181,47 @@ export function Workout() {
 
     const logs = allLogs || [];
 
-    // Processar logs - pegar o mais recente de cada exercício
-    const newLogs: ExerciseLog = {};
-    exercises.forEach(exercise => {
-      // Encontra o log mais recente deste exercício (já está ordenado por data DESC)
-      const mostRecentLog = logs.find(l => l.exercise_id === exercise.id);
-      const plannedSets = parseInt(exercise.sets?.toString() || '3');
+    // Processar logs e indexar por dia
+    const newLogsByDay: Record<number, ExerciseLog> = {};
+    for (const [dayStr, dayExercises] of Object.entries(exByDay)) {
+      const dayNum = parseInt(dayStr);
+      const dayLogs: ExerciseLog = {};
 
-      if (mostRecentLog && mostRecentLog.sets_completed) {
-        // Usa os dados do último treino salvo
-        newLogs[exercise.id] = {
-          sets: mostRecentLog.sets_completed.map((s: { set: number; weight: number; reps: number }) => ({
-            set: s.set,
-            weight: s.weight?.toString() || '',
-            reps: s.reps?.toString() || '',
-          })),
-          saved: false, // Marcar como não salvo para hoje
-          expanded: false,
-        };
-      } else {
-        // Sem histórico - usar valores padrão do exercício
-        newLogs[exercise.id] = {
-          sets: Array.from({ length: plannedSets }, (_, i) => ({
-            set: i + 1,
-            weight: exercise.weight_kg?.toString() || '',
-            reps: '',
-          })),
-          saved: false,
-          expanded: false,
-        };
+      for (const exercise of dayExercises) {
+        // Encontra o log mais recente deste exercício (já está ordenado por data DESC)
+        const mostRecentLog = logs.find(l => l.exercise_id === exercise.id);
+        const plannedSets = parseInt(exercise.sets?.toString() || '3');
+
+        if (mostRecentLog && mostRecentLog.sets_completed) {
+          // Usa os dados do último treino salvo
+          dayLogs[exercise.id] = {
+            sets: mostRecentLog.sets_completed.map((s: { set: number; weight: number; reps: number }) => ({
+              set: s.set,
+              weight: s.weight?.toString() || '',
+              reps: s.reps?.toString() || '',
+            })),
+            saved: false,
+            expanded: false,
+          };
+        } else {
+          // Sem histórico - usar valores padrão do exercício
+          dayLogs[exercise.id] = {
+            sets: Array.from({ length: plannedSets }, (_, i) => ({
+              set: i + 1,
+              weight: exercise.weight_kg?.toString() || '',
+              reps: '',
+            })),
+            saved: false,
+            expanded: false,
+          };
+        }
       }
-    });
 
-    setExerciseLogs(newLogs);
-  }, [profile?.id, selectedDay]);
+      newLogsByDay[dayNum] = dayLogs;
+    }
+
+    setLogsByDay(newLogsByDay);
+  }, [profile?.id]);
 
   // Manter ref de fetchAllData atualizada
   useEffect(() => {
@@ -211,11 +245,11 @@ export function Workout() {
     return () => clearInterval(interval);
   }, []);
 
-  // Hook que gerencia loading e refetch automático
+  // Hook que gerencia loading e refetch automático (SEM selectedDay como dependency)
   const { isInitialLoading: loading } = usePageData({
     userId: profile?.id,
     fetchData: fetchAllData,
-    dependencies: [selectedDay],
+    dependencies: [],
   });
 
   async function toggleExercise(exerciseId: string) {
@@ -254,30 +288,34 @@ export function Workout() {
 
   // Toggle expandir/colapsar exercício
   function toggleExpand(exerciseId: string) {
-    setExerciseLogs(prev => ({
-      ...prev,
-      [exerciseId]: {
-        ...prev[exerciseId],
-        expanded: !prev[exerciseId]?.expanded,
-      },
-    }));
+    setLogsByDay(prev => {
+      const dayLogs = prev[selectedDay] ?? {};
+      return {
+        ...prev,
+        [selectedDay]: {
+          ...dayLogs,
+          [exerciseId]: {
+            ...dayLogs[exerciseId],
+            expanded: !dayLogs[exerciseId]?.expanded,
+          },
+        },
+      };
+    });
   }
 
   // Atualizar set específico
   function updateSet(exerciseId: string, setIndex: number, field: 'weight' | 'reps', value: string) {
-    setExerciseLogs(prev => {
-      const exerciseLog = prev[exerciseId];
+    setLogsByDay(prev => {
+      const dayLogs = prev[selectedDay] ?? {};
+      const exerciseLog = dayLogs[exerciseId];
+      if (!exerciseLog) return prev;
       const newSets = [...exerciseLog.sets];
-      newSets[setIndex] = {
-        ...newSets[setIndex],
-        [field]: value,
-      };
+      newSets[setIndex] = { ...newSets[setIndex], [field]: value };
       return {
         ...prev,
-        [exerciseId]: {
-          ...exerciseLog,
-          sets: newSets,
-          saved: false,
+        [selectedDay]: {
+          ...dayLogs,
+          [exerciseId]: { ...exerciseLog, sets: newSets, saved: false },
         },
       };
     });
@@ -287,22 +325,27 @@ export function Workout() {
 
   // Adicionar série
   function addSet(exerciseId: string) {
-    setExerciseLogs(prev => {
-      const exerciseLog = prev[exerciseId];
+    setLogsByDay(prev => {
+      const dayLogs = prev[selectedDay] ?? {};
+      const exerciseLog = dayLogs[exerciseId];
+      if (!exerciseLog) return prev;
       const lastSet = exerciseLog.sets[exerciseLog.sets.length - 1];
       return {
         ...prev,
-        [exerciseId]: {
-          ...exerciseLog,
-          sets: [
-            ...exerciseLog.sets,
-            {
-              set: exerciseLog.sets.length + 1,
-              weight: lastSet?.weight || '',
-              reps: '',
-            },
-          ],
-          saved: false,
+        [selectedDay]: {
+          ...dayLogs,
+          [exerciseId]: {
+            ...exerciseLog,
+            sets: [
+              ...exerciseLog.sets,
+              {
+                set: exerciseLog.sets.length + 1,
+                weight: lastSet?.weight || '',
+                reps: '',
+              },
+            ],
+            saved: false,
+          },
         },
       };
     });
@@ -312,15 +355,19 @@ export function Workout() {
 
   // Remover última série
   function removeSet(exerciseId: string) {
-    setExerciseLogs(prev => {
-      const exerciseLog = prev[exerciseId];
-      if (exerciseLog.sets.length <= 1) return prev;
+    setLogsByDay(prev => {
+      const dayLogs = prev[selectedDay] ?? {};
+      const exerciseLog = dayLogs[exerciseId];
+      if (!exerciseLog || exerciseLog.sets.length <= 1) return prev;
       return {
         ...prev,
-        [exerciseId]: {
-          ...exerciseLog,
-          sets: exerciseLog.sets.slice(0, -1),
-          saved: false,
+        [selectedDay]: {
+          ...dayLogs,
+          [exerciseId]: {
+            ...exerciseLog,
+            sets: exerciseLog.sets.slice(0, -1),
+            saved: false,
+          },
         },
       };
     });
@@ -378,13 +425,19 @@ export function Workout() {
         }
       }
 
-      setExerciseLogs(prev => ({
-        ...prev,
-        [exerciseId]: {
-          ...prev[exerciseId],
-          saved: true,
-        },
-      }));
+      setLogsByDay(prev => {
+        const dayLogs = prev[selectedDay] ?? {};
+        return {
+          ...prev,
+          [selectedDay]: {
+            ...dayLogs,
+            [exerciseId]: {
+              ...dayLogs[exerciseId],
+              saved: true,
+            },
+          },
+        };
+      });
 
       // Remover do estado de auto-saving
       if (isAutoSave) {
@@ -475,7 +528,25 @@ export function Workout() {
 
       <main className={styles.content}>
         {loading ? (
-          <div className={styles.loading}>Carregando treino...</div>
+          <div className={styles.skeletonContainer}>
+            <div className={styles.skeletonCard}>
+              <div className={styles.skeletonIcon} />
+              <div className={styles.skeletonText}>
+                <div className={styles.skeletonLine} style={{ width: '60%' }} />
+                <div className={styles.skeletonLine} style={{ width: '40%' }} />
+              </div>
+            </div>
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} className={styles.skeletonExercise}>
+                <div className={styles.skeletonCircle} />
+                <div className={styles.skeletonText}>
+                  <div className={styles.skeletonLine} style={{ width: '70%' }} />
+                  <div className={styles.skeletonLine} style={{ width: '50%' }} />
+                </div>
+                <div className={styles.skeletonThumb} />
+              </div>
+            ))}
+          </div>
         ) : workout ? (
           <>
             <Card className={styles.workoutInfo}>

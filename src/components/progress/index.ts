@@ -1,0 +1,1 @@
+export { ProgressPhotosSection } from './ProgressPhotosSection';

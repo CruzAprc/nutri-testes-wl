@@ -1,0 +1,350 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* View mode toggle */
+.viewModeToggle {
+  display: flex;
+  background: var(--bg-card);
+  border-radius: 12px;
+  padding: 4px;
+  gap: 4px;
+  border: 1px solid var(--border-light);
+}
+
+.viewModeBtn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+.viewModeBtn:hover {
+  color: var(--text-primary);
+}
+
+.viewModeBtnActive {
+  background: var(--primary);
+  color: #fff;
+}
+
+.viewModeBtnActive:hover {
+  color: #fff;
+}
+
+/* Month selector row */
+.monthRow {
+  display: flex;
+  gap: 8px;
+}
+
+.monthPillWrapper {
+  flex: 1;
+  position: relative;
+}
+
+.monthPill {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border-light);
+  background: var(--bg-card);
+  font-size: 13px;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.monthPill:hover {
+  border-color: var(--primary);
+}
+
+.monthPillLabel {
+  font-weight: 600;
+  color: var(--primary);
+  margin-right: 4px;
+  white-space: nowrap;
+}
+
+.monthPillValue {
+  flex: 1;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.monthPillIcon {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  transition: transform 0.2s;
+}
+
+.monthPillIconOpen {
+  transform: rotate(180deg);
+}
+
+/* Month dropdown */
+.monthDropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  max-height: 320px;
+  overflow-y: auto;
+  z-index: 100;
+  padding: 4px;
+}
+
+/* Year selector */
+.yearSelector {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-light);
+  margin-bottom: 4px;
+}
+
+.yearLabel {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  min-width: 48px;
+  text-align: center;
+}
+
+.yearBtn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid var(--border-light);
+  background: transparent;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.yearBtn:hover:not(:disabled) {
+  background: rgba(var(--primary-rgb, 99, 102, 241), 0.08);
+  color: var(--primary);
+}
+
+.yearBtn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.yearChevronLeft {
+  transform: rotate(90deg);
+}
+
+.yearChevronRight {
+  transform: rotate(-90deg);
+}
+
+/* Month dropdown items */
+.monthDropdownItem {
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  font-size: 13px;
+  color: var(--text-primary);
+  cursor: pointer;
+  border-radius: 8px;
+  transition: background 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.monthDropdownItem:hover {
+  background: rgba(var(--primary-rgb, 99, 102, 241), 0.08);
+}
+
+.monthDropdownItemActive {
+  background: var(--primary);
+  color: #fff;
+}
+
+.monthDropdownItemActive:hover {
+  background: var(--primary);
+}
+
+.monthDropdownItemEmpty {
+  color: var(--text-muted);
+}
+
+.monthDropdownItemActive.monthDropdownItemEmpty {
+  color: #fff;
+}
+
+.monthPhotoIcon {
+  color: var(--primary);
+  flex-shrink: 0;
+}
+
+.monthDropdownItemActive .monthPhotoIcon {
+  color: #fff;
+}
+
+.monthNoPhoto {
+  font-size: 11px;
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+
+.monthDropdownItemActive .monthNoPhoto {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* Type tabs */
+.typeTabs {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+}
+
+.typeTab {
+  padding: 6px 16px;
+  border-radius: 20px;
+  border: 1px solid var(--border-light);
+  background: var(--bg-card);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+
+.typeTab:hover {
+  color: var(--text-primary);
+  border-color: var(--primary);
+}
+
+.typeTabActive {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
+
+.typeTabActive:hover {
+  color: #fff;
+}
+
+/* Comparison display */
+.comparisonArea {
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--bg-card);
+  min-height: 300px;
+}
+
+.sideBySide {
+  display: flex;
+  gap: 8px;
+  padding: 8px;
+}
+
+.sideBySideItem {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.sideBySideImage {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+  border-radius: 12px;
+  background: var(--border-light);
+}
+
+.sideBySideLabel {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+}
+
+.emptyState {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  color: var(--text-muted);
+  font-size: 14px;
+  text-align: center;
+  padding: 24px;
+}
+
+/* Action buttons */
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+.actionBtn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--border-light);
+  background: var(--bg-card);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background 0.2s, opacity 0.2s;
+}
+
+.actionBtn:hover:not(:disabled) {
+  background: rgba(var(--primary-rgb, 99, 102, 241), 0.08);
+}
+
+.actionBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.actionBtnPrimary {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
+
+.actionBtnPrimary:hover:not(:disabled) {
+  opacity: 0.9;
+  background: var(--primary);
+}
